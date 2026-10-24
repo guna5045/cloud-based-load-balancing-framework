@@ -73,19 +73,23 @@ cloud-based-load-balancing-framework/
 
 ---
 
-## 4. Current Phase: Phase 5 (Real Server Instances & HTTP Forwarding)
+## 4. Current Phase: Phase 6 (Real-Time Server Monitoring & Overload Detection)
 
-### Completed in Phase 5:
-- **Independent Server Instances**: Dedicated Express HTTP processes for `S1` (:3001), `S2` (:3002), and `S3` (:3003).
-- **Genuine HTTP Forwarding**: Backend Load Balancer (`:5000`) dynamically routes incoming requests over HTTP using native `fetch` with 3000ms timeout and abort controllers.
-- **Round-Robin Scheduling**: Persistent stateful pointer routing across healthy instances with fallback.
-- **Failure Detection & Failover**: Load balancer intercepts communication errors, marks target server `offline`, broadcasts `server:status` over Socket.IO, and automatically reroutes to the next healthy instance.
-- **Active Health Monitoring**: Periodic background health check (every 5s) pinging `GET /health` with automatic recovery detection.
-- **Local Telemetry & Request History**: Each server instance maintains its own throughput, latency stats, and bounded local request log.
-- **Frontend Real-Routing Integration**: Server port badges (`S1:3001`, `S2:3002`, `S3:3003`), real-time status updates via Socket.IO, and live latency feedback.
-- **Automated Test Suites**: 10/10 Round Robin unit tests and 17/17 Phase 5 integration tests (27/27 total tests passing).
+### Completed in Phase 6:
+- **Real Server Telemetry**: Server instances (`S1`, `S2`, `S3`) expose live operational telemetry through `GET /telemetry`, including in-flight `activeRequests`, rolling `requestsPerSecond` (5s sliding window), bounded `averageProcessingTime`, Node.js heap memory, process CPU usage, and uptime.
+- **Accurate Active Request Tracking**: Execution wrapped in `try/finally` blocks so concurrency counters strictly track actual in-flight HTTP requests.
+- **Deterministic Utilization Formula**: Dedicated `utilizationService.ts` computing a normalized `[0, 100]%` score derived from active concurrency pressure (40%), request rate pressure (35%), execution latency pressure (15%), and heap memory pressure (10%). Absolutely NO `Math.random()` or fake load values.
+- **Server Load States**: Standardized states — `healthy` (0–59%), `warning` (60–79%), `overloaded` (80–100%), and `offline` (unreachable).
+- **Hysteresis & Flapping Protection**: Configurable confirmation samples (2 consecutive samples `>= 80%` required to enter `overloaded`; 2 consecutive samples `< 70%` required to confirm recovery). Eliminates duplicate overload transition events.
+- **Centralized Cluster Monitoring Engine**: Single unified `monitoringService.ts` running at a configurable interval (default 5000ms), maintaining bounded history (last 60 samples/server), updating registry state, and broadcasting Socket.IO events.
+- **Socket.IO Event Pipeline**:
+  - `server:metrics`: Real-time telemetry broadcast on every monitoring cycle.
+  - `server:overloaded`: High-priority alert emitted strictly on transition into overloaded state.
+  - `server:status`: Preserved from Phase 5 for health, failure, and recovery state changes.
+- **Frontend Real-Time Monitoring Integration**: Live cluster monitoring status bar, live telemetry area chart with `● LIVE TELEMETRY` pulse badge, animated node load bars, and real-time inspector in `ServerDetailsPanel`.
+- **Automated Verification Suites**: 51/51 total tests passing (10/10 Round Robin unit tests, 17/17 Phase 5 integration tests, 24/24 Phase 6 monitoring tests).
 
-> **Important Scope Notice:** Automatic scaling and dynamic child server creation (`S1.1`, etc.) have NOT been implemented yet and are intentionally scoped for Phase 6.
+> **Important Scope Notice:** Automatic child-server creation (`S1.1`, `S1.2`, `S1.3`, etc.) and recursive scaling have NOT been implemented yet. Phase 6 detects overload; Phase 7 will react to overload.
 
 ---
 

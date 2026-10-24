@@ -13,7 +13,17 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { apiService } from '../services/api';
 import { getSocket } from '../services/socket';
-import { RoutingResult, RequestRecord, RoutingMetrics, RoutedSocketEvent, ServerStatusEvent } from '../types/server.types';
+import {
+  RoutingResult,
+  RequestRecord,
+  RoutingMetrics,
+  RoutedSocketEvent,
+  ServerStatusEvent,
+  ServerMetricsEvent,
+  ServerOverloadedEvent,
+  ClusterMetricsSummary,
+} from '../types/server.types';
+import { TimeSeriesPoint } from '../data/mockData';
 import { useSimulation } from '../context/SimulationContext';
 import { makeEvent } from '../data/topologySimulation';
 
@@ -23,6 +33,8 @@ export interface UseRealRoutingReturn {
   isSending: boolean;
   lastResult: RoutingResult | null;
   metrics: RoutingMetrics | null;
+  clusterSummary: ClusterMetricsSummary;
+  liveTimeSeries: TimeSeriesPoint[];
   recentRequests: RequestRecord[];
   isAutoTrafficRunning: boolean;
   socketConnected: boolean;
@@ -40,6 +52,15 @@ export function useRealRouting(): UseRealRoutingReturn {
   const [isSending, setIsSending] = useState(false);
   const [lastResult, setLastResult] = useState<RoutingResult | null>(null);
   const [metrics, setMetrics] = useState<RoutingMetrics | null>(null);
+  const [clusterSummary, setClusterSummary] = useState<ClusterMetricsSummary>({
+    healthyServers: 3,
+    warningServers: 0,
+    overloadedServers: 0,
+    offlineServers: 0,
+    averageUtilization: 0,
+    totalRequests: 0,
+  });
+  const [liveTimeSeries, setLiveTimeSeries] = useState<TimeSeriesPoint[]>([]);
   const [recentRequests, setRecentRequests] = useState<RequestRecord[]>([]);
   const [isAutoTrafficRunning, setIsAutoTrafficRunning] = useState(false);
   const [socketConnected, setSocketConnected] = useState(false);
@@ -61,8 +82,18 @@ export function useRealRouting(): UseRealRoutingReturn {
         apiService.getRequests(15).catch(() => null),
       ]);
 
-      if (metricsRes?.data?.routing) {
-        setMetrics(metricsRes.data.routing);
+      if (metricsRes?.data) {
+        if (metricsRes.data.routing) {
+          setMetrics(metricsRes.data.routing);
+        }
+        setClusterSummary({
+          healthyServers: metricsRes.data.healthyServers ?? 0,
+          warningServers: metricsRes.data.warningServers ?? 0,
+          overloadedServers: metricsRes.data.overloadedServers ?? 0,
+          offlineServers: metricsRes.data.offlineServers ?? 0,
+          averageUtilization: metricsRes.data.averageUtilization ?? 0,
+          totalRequests: metricsRes.data.routing?.totalRequests ?? 0,
+        });
       }
       if (requestsRes?.data) {
         setRecentRequests(requestsRes.data);
@@ -155,10 +186,43 @@ export function useRealRouting(): UseRealRoutingReturn {
       refreshData();
     };
 
+    const onServerMetrics = (data: ServerMetricsEvent) => {
+      sim.updateServerMetrics(data);
+      const timeStr = new Date(data.timestamp).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
+      setLiveTimeSeries((prev) => {
+        const newPoint: TimeSeriesPoint = {
+          time: timeStr,
+          load: data.load,
+          requests: data.requestsPerSecond,
+          latency: Math.round(data.averageProcessingTime),
+        };
+        const updated = [...prev, newPoint];
+        return updated.length > 25 ? updated.slice(updated.length - 25) : updated;
+      });
+    };
+
+    const onServerOverloaded = (data: ServerOverloadedEvent) => {
+      sim.updateServerStatus(data.serverId, 'overloaded');
+      sim.addEvent(
+        makeEvent(
+          'warning',
+          `🚨 [OVERLOAD] Server ${data.serverId} reached ${data.utilization}% load (threshold: ${data.threshold}%)`,
+          data.serverId
+        )
+      );
+      refreshData();
+    };
+
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
     socket.on('request:routed', onRouted);
     socket.on('server:status', onServerStatus);
+    socket.on('server:metrics', onServerMetrics);
+    socket.on('server:overloaded', onServerOverloaded);
 
     if (socket.connected) {
       setSocketConnected(true);
@@ -169,6 +233,8 @@ export function useRealRouting(): UseRealRoutingReturn {
       socket.off('disconnect', onDisconnect);
       socket.off('request:routed', onRouted);
       socket.off('server:status', onServerStatus);
+      socket.off('server:metrics', onServerMetrics);
+      socket.off('server:overloaded', onServerOverloaded);
     };
   }, [sim, refreshData]);
 
@@ -289,6 +355,8 @@ export function useRealRouting(): UseRealRoutingReturn {
     isSending,
     lastResult,
     metrics,
+    clusterSummary,
+    liveTimeSeries,
     recentRequests,
     isAutoTrafficRunning,
     socketConnected,

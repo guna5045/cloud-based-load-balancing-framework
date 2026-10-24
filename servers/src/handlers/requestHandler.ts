@@ -27,33 +27,40 @@ export const getHealth = (_req: Request, res: Response): void => {
 };
 
 export const processRequest = async (req: Request, res: Response): Promise<void> => {
-  const startTime = Date.now();
-  const requestId = req.body?.requestId || `REQ-${Date.now()}`;
-  const clientPayload = req.body?.payload;
+  telemetryService.incrementActiveRequests();
+  try {
+    const startTime = Date.now();
+    const requestId = req.body?.requestId || `REQ-${Date.now()}`;
+    const clientPayload = req.body?.payload;
 
-  // Controlled execution delay (10ms - 25ms jitter) demonstrating real processing time
-  const jitter = Math.floor(Math.random() * 15);
-  const totalDelay = serverConfig.baseDelayMs + jitter;
-  await new Promise((resolve) => setTimeout(resolve, totalDelay));
+    // Controlled execution delay (10ms - 25ms jitter) demonstrating real processing time
+    // Or explicit delayMs if requested (for testing active request concurrency)
+    const customDelay = typeof req.body?.delayMs === 'number' ? req.body.delayMs : undefined;
+    const jitter = Math.floor(Math.random() * 15);
+    const totalDelay = customDelay !== undefined ? customDelay : serverConfig.baseDelayMs + jitter;
+    await new Promise((resolve) => setTimeout(resolve, totalDelay));
 
-  const processingTime = Date.now() - startTime;
-  const timestamp = new Date().toISOString();
+    const processingTime = Date.now() - startTime;
+    const timestamp = new Date().toISOString();
 
-  // Record in server local telemetry
-  telemetryService.recordRequest(requestId, processingTime);
+    // Record in server local telemetry
+    telemetryService.recordRequest(requestId, processingTime);
 
-  const response: ProcessResponse = {
-    success: true,
-    requestId,
-    serverId: serverConfig.serverId,
-    status: 'processed',
-    processingTime,
-    message: `Request processed by ${serverConfig.serverId}`,
-    timestamp,
-    payload: clientPayload,
-  };
+    const response: ProcessResponse = {
+      success: true,
+      requestId,
+      serverId: serverConfig.serverId,
+      status: 'processed',
+      processingTime,
+      message: `Request processed by ${serverConfig.serverId}`,
+      timestamp,
+      payload: clientPayload,
+    };
 
-  res.status(200).json(response);
+    res.status(200).json(response);
+  } finally {
+    telemetryService.decrementActiveRequests();
+  }
 };
 
 export const getTelemetry = (_req: Request, res: Response): void => {

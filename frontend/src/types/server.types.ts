@@ -22,6 +22,10 @@ export interface ServerNode {
   metrics?: ServerMetrics;
   requestCount?: number;
   requestsPerSecond?: number;
+  activeRequests?: number;
+  averageProcessingTime?: number;
+  utilization?: number;
+  lastMetricsAt?: string;
   lastRequestAt?: string | null;
 }
 
@@ -106,3 +110,43 @@ export interface ServerStatusEvent {
   reason?: string;
   timestamp: string;
 }
+
+export interface ServerMetricsEvent {
+  serverId: string;
+  load: number;
+  utilization: number;
+  requestsPerSecond: number;
+  activeRequests: number;
+  averageProcessingTime: number;
+  status: ServerStatus;
+  timestamp: string;
+}
+
+export interface ServerOverloadedEvent {
+  serverId: string;
+  utilization: number;
+  threshold: number;
+  status: 'overloaded';
+  timestamp: string;
+}
+
+export interface MonitoringSample {
+  timestamp: string;
+  serverId: string;
+  utilization: number;
+  load: number;
+  requestsPerSecond: number;
+  activeRequests: number;
+  averageProcessingTime: number;
+  status: ServerStatus;
+}
+
+export interface ClusterMetricsSummary {
+  healthyServers: number;
+  warningServers: number;
+  overloadedServers: number;
+  offlineServers: number;
+  averageUtilization: number;
+  totalRequests: number;
+}
+

@@ -22,10 +22,37 @@ export interface ServerNode {
   metrics?: ServerMetrics;
   requestCount?: number;
   requestsPerSecond?: number;
+  activeRequests?: number;
+  averageProcessingTime?: number;
+  utilization?: number;
+  lastMetricsAt?: string;
   lastRequestAt?: string | null;
   host?: string;
   port?: number;
   baseUrl?: string;
+}
+
+export interface RemoteServerTelemetry {
+  serverId: string;
+  port: number;
+  status: ServerStatus;
+  requestCount: number;
+  requestsPerSecond: number;
+  activeRequests: number;
+  averageProcessingTime: number;
+  lastRequestAt: string | null;
+  uptime: number;
+  memory?: {
+    rss: number;
+    heapUsed: number;
+    heapTotal: number;
+    external: number;
+  };
+  cpuUsage?: {
+    user: number;
+    system: number;
+  };
+  timestamp: string;
 }
 
 export interface ServerStatusEvent {
@@ -34,6 +61,46 @@ export interface ServerStatusEvent {
   reason?: string;
   timestamp: string;
 }
+
+export interface ServerMetricsEvent {
+  serverId: string;
+  load: number;
+  utilization: number;
+  requestsPerSecond: number;
+  activeRequests: number;
+  averageProcessingTime: number;
+  status: ServerStatus;
+  timestamp: string;
+}
+
+export interface ServerOverloadedEvent {
+  serverId: string;
+  utilization: number;
+  threshold: number;
+  status: 'overloaded';
+  timestamp: string;
+}
+
+export interface MonitoringSample {
+  timestamp: string;
+  serverId: string;
+  utilization: number;
+  load: number;
+  requestsPerSecond: number;
+  activeRequests: number;
+  averageProcessingTime: number;
+  status: ServerStatus;
+}
+
+export interface ClusterMetricsSummary {
+  healthyServers: number;
+  warningServers: number;
+  overloadedServers: number;
+  offlineServers: number;
+  averageUtilization: number;
+  totalRequests: number;
+}
+
 
 export interface TopologySummary {
   totalServers: number;

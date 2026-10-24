@@ -14,6 +14,7 @@ import { TimeSeriesPoint } from '../data/mockData';
 
 interface UtilizationChartProps {
   data: TimeSeriesPoint[];
+  isLive?: boolean;
 }
 
 const CUSTOM_TOOLTIP = ({
@@ -39,13 +40,23 @@ const CUSTOM_TOOLTIP = ({
   );
 };
 
-export const UtilizationChart: React.FC<UtilizationChartProps> = ({ data }) => {
+export const UtilizationChart: React.FC<UtilizationChartProps> = ({ data, isLive = false }) => {
   return (
     <div className="card p-4 flex flex-col gap-3">
       <div className="flex items-center gap-2">
         <BarChart2 className="w-4 h-4 text-blue-400" />
         <span className="font-semibold text-sm text-slate-200">System Utilization</span>
-        <span className="ml-auto text-[10px] text-slate-500 font-mono">last 10 min</span>
+        {isLive ? (
+          <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            LIVE TELEMETRY
+          </span>
+        ) : (
+          <span className="px-2 py-0.5 rounded text-[10px] font-mono text-slate-500 bg-slate-800">
+            SIMULATION
+          </span>
+        )}
+        <span className="ml-auto text-[10px] text-slate-500 font-mono">recent samples</span>
       </div>
 
       {/* Legend */}

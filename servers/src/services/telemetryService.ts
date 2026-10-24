@@ -13,12 +13,35 @@ class TelemetryService {
   private requestCount: number = 0;
   private totalProcessingTimeMs: number = 0;
   private lastRequestAt: string | null = null;
+  private activeRequests: number = 0;
   private history: LocalRequestRecord[] = [];
   private readonly maxHistorySize: number = 100;
   private rpsWindow: { count: number; windowStart: number } = {
     count: 0,
     windowStart: Date.now(),
   };
+  private prevCpuUsage: NodeJS.CpuUsage = process.cpuUsage();
+
+  /**
+   * Increments active concurrent requests.
+   */
+  public incrementActiveRequests(): void {
+    this.activeRequests += 1;
+  }
+
+  /**
+   * Decrements active concurrent requests (safely clamped to >= 0).
+   */
+  public decrementActiveRequests(): void {
+    this.activeRequests = Math.max(0, this.activeRequests - 1);
+  }
+
+  /**
+   * Returns current active in-flight requests count.
+   */
+  public getActiveRequests(): number {
+    return this.activeRequests;
+  }
 
   /**
    * Records a processed request in local server memory.
@@ -63,15 +86,31 @@ class TelemetryService {
         ? Math.round((this.totalProcessingTimeMs / this.requestCount) * 10) / 10
         : 0;
 
+    const mem = process.memoryUsage();
+    const currentCpu = process.cpuUsage(this.prevCpuUsage);
+    this.prevCpuUsage = process.cpuUsage();
+
     return {
       serverId: serverConfig.serverId,
       port: serverConfig.port,
       status: 'healthy',
       requestCount: this.requestCount,
       requestsPerSecond,
+      activeRequests: this.activeRequests,
       averageProcessingTime,
       lastRequestAt: this.lastRequestAt,
       uptime: Math.round(process.uptime() * 100) / 100,
+      memory: {
+        rss: mem.rss,
+        heapUsed: mem.heapUsed,
+        heapTotal: mem.heapTotal,
+        external: mem.external,
+      },
+      cpuUsage: {
+        user: currentCpu.user,
+        system: currentCpu.system,
+      },
+      timestamp: new Date().toISOString(),
     };
   }
 
@@ -90,9 +129,12 @@ class TelemetryService {
     this.requestCount = 0;
     this.totalProcessingTimeMs = 0;
     this.lastRequestAt = null;
+    this.activeRequests = 0;
     this.history = [];
     this.rpsWindow = { count: 0, windowStart: Date.now() };
+    this.prevCpuUsage = process.cpuUsage();
   }
 }
 
 export const telemetryService = new TelemetryService();
+

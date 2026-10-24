@@ -7,7 +7,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { ServerNode, ServerStatus } from '../types/server.types';
+import { ServerNode, ServerStatus, ServerMetricsEvent } from '../types/server.types';
 import { LiveEvent } from '../data/mockData';
 import {
   TrafficRate,
@@ -73,6 +73,7 @@ export interface UseTopologySimulationReturn {
   addEvent: (event: LiveEvent) => void;
   recordRealServerHit: (serverId: string) => void;
   updateServerStatus: (serverId: string, status: ServerStatus) => void;
+  updateServerMetrics: (data: ServerMetricsEvent) => void;
 }
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
@@ -355,6 +356,30 @@ export function useTopologySimulation(): UseTopologySimulationReturn {
     );
   }, []);
 
+  // ── Update server real-time monitoring metrics & utilization ──
+  const updateServerMetrics = useCallback((data: ServerMetricsEvent) => {
+    setServers((prev) =>
+      updateNode(prev, data.serverId, (node) => ({
+        ...node,
+        load: data.load,
+        utilization: data.utilization,
+        status: data.status,
+        requestsPerSecond: data.requestsPerSecond,
+        activeRequests: data.activeRequests,
+        averageProcessingTime: data.averageProcessingTime,
+        metrics: {
+          activeConnections: data.activeRequests,
+          totalRequestsHandled: node.metrics?.totalRequestsHandled ?? 0,
+          cpuUsagePercent: Math.round(data.load * 0.8),
+          memoryUsagePercent: node.metrics?.memoryUsagePercent ?? 20,
+          responseTimeMs: data.averageProcessingTime,
+          requestsPerSecond: data.requestsPerSecond,
+          lastRequestAt: data.timestamp,
+        },
+      }))
+    );
+  }, []);
+
   return {
     servers,
     resetTopology,
@@ -376,5 +401,6 @@ export function useTopologySimulation(): UseTopologySimulationReturn {
     addEvent,
     recordRealServerHit,
     updateServerStatus,
+    updateServerMetrics,
   };
 }

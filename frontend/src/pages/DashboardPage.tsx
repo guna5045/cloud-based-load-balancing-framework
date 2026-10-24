@@ -158,6 +158,41 @@ export const DashboardPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Cluster Monitoring Status Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 px-3.5 py-2 rounded-xl bg-slate-900/70 border border-slate-800 text-xs font-mono">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-slate-400 font-semibold uppercase tracking-wider text-[10px]">
+            Phase 6 Cluster Monitor
+          </span>
+          <span className="flex items-center gap-1.5 text-emerald-400">
+            <span className="w-2 h-2 rounded-full bg-emerald-400" />
+            {real.clusterSummary.healthyServers} Healthy
+          </span>
+          <span className="flex items-center gap-1.5 text-amber-400">
+            <span className="w-2 h-2 rounded-full bg-amber-400" />
+            {real.clusterSummary.warningServers} Warning
+          </span>
+          <span className="flex items-center gap-1.5 text-rose-400">
+            <span className="w-2 h-2 rounded-full bg-rose-400" />
+            {real.clusterSummary.overloadedServers} Overloaded
+          </span>
+          <span className="flex items-center gap-1.5 text-slate-500">
+            <span className="w-2 h-2 rounded-full bg-slate-500" />
+            {real.clusterSummary.offlineServers} Offline
+          </span>
+        </div>
+        <div className="flex items-center gap-3 text-slate-400 text-[11px]">
+          <span>
+            Avg Cluster Utilization:{' '}
+            <strong className="text-blue-400">{real.clusterSummary.averageUtilization}%</strong>
+          </span>
+          <span className="text-slate-600">|</span>
+          <span>
+            Overload Threshold: <strong className="text-rose-400">80%</strong>
+          </span>
+        </div>
+      </div>
+
       {/* KPI row — using real backend routing metrics when available */}
       <motion.div
         initial="hidden"
@@ -176,14 +211,14 @@ export const DashboardPage: React.FC = () => {
           description={real.metrics && real.metrics.totalRequests > 0 ? 'Real Round Robin requests' : 'Simulated — since startup'}
         />
         <MetricCard
-          title="Active Nodes"
+          title="Cluster Nodes"
           value={activeNodes}
           icon={Server}
           accentColor="text-emerald-400"
-          description={`Max depth: ${sim.metrics.maxDepth}`}
+          description={`${real.clusterSummary.healthyServers} healthy · ${real.clusterSummary.warningServers} warning`}
         />
         <MetricCard
-          title="Avg Response"
+          title="Avg Latency"
           value={avgLatency}
           unit="ms"
           icon={Clock}
@@ -191,19 +226,25 @@ export const DashboardPage: React.FC = () => {
           description={real.metrics && real.metrics.totalRequests > 0 ? 'Backend processing latency' : 'Cross-cluster average'}
         />
         <MetricCard
-          title="System Load"
-          value={avgLoad}
+          title="Cluster Load"
+          value={real.clusterSummary.averageUtilization > 0 ? real.clusterSummary.averageUtilization : avgLoad}
           unit="%"
           icon={Cpu}
-          accentColor="text-amber-400"
-          description="Weighted cluster load"
+          accentColor={
+            (real.clusterSummary.averageUtilization || avgLoad) >= 80
+              ? 'text-rose-400'
+              : (real.clusterSummary.averageUtilization || avgLoad) >= 60
+              ? 'text-amber-400'
+              : 'text-blue-400'
+          }
+          description="Normalized telemetry load"
         />
         <MetricCard
-          title="Scaling Events"
-          value={sim.metrics.scalingEvents}
+          title="Overload State"
+          value={real.clusterSummary.overloadedServers > 0 ? 'ACTIVE' : 'NOMINAL'}
           icon={Zap}
-          accentColor="text-violet-400"
-          description="Triggered this session"
+          accentColor={real.clusterSummary.overloadedServers > 0 ? 'text-rose-400' : 'text-emerald-400'}
+          description={real.clusterSummary.overloadedServers > 0 ? 'Server crossed 80% threshold' : 'All servers below threshold'}
         />
       </motion.div>
 
@@ -236,7 +277,10 @@ export const DashboardPage: React.FC = () => {
       {/* Bottom row: Charts + Real Request Distribution */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
-          <UtilizationChart data={mockTimeSeries} />
+          <UtilizationChart
+            data={real.liveTimeSeries.length > 0 ? real.liveTimeSeries : mockTimeSeries}
+            isLive={real.liveTimeSeries.length > 0}
+          />
         </div>
         <RequestDistribution
           data={distributionData}

@@ -117,8 +117,21 @@ interface ServerNode {
 - [x] Frontend port chips, Socket.IO `server:status` listener, and real-routing updates.
 - [x] 27/27 automated unit and integration tests passing (`npm run test:all`).
 
-### Phase 6: Automatic Scaling Engine & Dynamic Child Spawning (Upcoming)
-- Overload threshold detection (e.g. 80% sustained load).
-- Dynamic 3-child server branching (`S1.1`, `S1.2`, `S1.3`).
-- Hierarchical load distribution and child routing algorithms.
-- Automatic scale-down and node cleanup.
+### Phase 6: Real-Time Server Monitoring & Overload Detection (Completed)
+- [x] Live telemetry endpoints on all server instances (`GET /telemetry`) with `activeRequests`, `requestsPerSecond`, `averageProcessingTime`, memory heap, CPU usage, and uptime.
+- [x] Concurrency tracking wrapped in `try/finally` blocks ensuring zero drift.
+- [x] Deterministic, bounded `[0, 100]%` utilization formula in `utilizationService.ts` based on measurable server behavior without randomness.
+- [x] Standardized server load states: `healthy`, `warning`, `overloaded`, `offline`.
+- [x] Hysteresis confirmation logic (2 samples `>= 80%` to enter overload; 2 samples `< 70%` to recover) preventing flapping.
+- [x] Centralized `monitoringService.ts` running on 5s loop, updating registry and maintaining bounded 60-sample history.
+- [x] Socket.IO `server:metrics` and `server:overloaded` event broadcasting.
+- [x] Frontend cluster monitoring bar, `● LIVE TELEMETRY` chart integration, animated node load bars, and telemetry details in inspector.
+- [x] 24/24 Phase 6 automated tests passing (51/51 total across all suites).
+
+### Phase 7: Dynamic Child Spawning & Hierarchical Auto-Scaling (Upcoming)
+- Automatic trigger reacting to `server:overloaded` events.
+- Spawning exactly 3 child server instances beneath the overloaded server (`S1.1`, `S1.2`, `S1.3`).
+- Dynamic port allocation and process lifecycle management for child nodes.
+- Hierarchical Round Robin routing through parent and child branches.
+- Automatic scale-down and graceful termination upon load recovery.
+

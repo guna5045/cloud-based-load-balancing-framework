@@ -40,7 +40,20 @@ export interface LocalTelemetry {
   status: 'healthy';
   requestCount: number;
   requestsPerSecond: number;
+  activeRequests: number;
   averageProcessingTime: number;
   lastRequestAt: string | null;
   uptime: number;
+  memory?: {
+    rss: number;
+    heapUsed: number;
+    heapTotal: number;
+    external: number;
+  };
+  cpuUsage?: {
+    user: number;
+    system: number;
+  };
+  timestamp: string;
 }
+

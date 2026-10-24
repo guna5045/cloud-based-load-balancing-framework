@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ServerNode, ServerMetrics } from '../types/server.types';
 import { StatusBadge } from './StatusBadge';
 import {
-  X, Cpu, HardDrive, Activity, Zap, GitBranch, Clock, Users, ChevronRight,
+  X, Cpu, HardDrive, Activity, Zap, GitBranch, Clock, ChevronRight,
 } from 'lucide-react';
 
 interface ServerDetailsPanelProps {
@@ -161,17 +161,33 @@ export const ServerDetailsPanel: React.FC<ServerDetailsPanelProps> = ({
               </div>
             </div>
 
-            {/* Performance */}
+            {/* Performance & Real-Time Monitoring */}
             <div className="space-y-3">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-                Performance
+                Performance & Monitoring
               </p>
+              <div className="flex items-center justify-between text-xs pb-1 border-b border-slate-800/50">
+                <span className="text-slate-400">Process Port</span>
+                <span className="font-mono text-emerald-400 font-bold">
+                  :{server.id === 'S1' ? 3001 : server.id === 'S2' ? 3002 : server.id === 'S3' ? 3003 : 3000}
+                </span>
+              </div>
               <StatRow
                 icon={<Activity className="w-3.5 h-3.5" />}
-                label="Current Load"
-                value={`${server.load}%`}
-                bar={server.load}
-                barColor={loadBarColor(server.load)}
+                label="Utilization"
+                value={`${server.utilization ?? server.load}%`}
+                bar={server.utilization ?? server.load}
+                barColor={loadBarColor(server.utilization ?? server.load)}
+              />
+              <StatRow
+                icon={<Cpu className="w-3.5 h-3.5" />}
+                label="Active Requests"
+                value={`${server.activeRequests ?? m?.activeConnections ?? 0} req`}
+              />
+              <StatRow
+                icon={<Clock className="w-3.5 h-3.5" />}
+                label="Avg Processing"
+                value={`${server.averageProcessingTime ?? m?.responseTimeMs ?? '—'} ms`}
               />
               <StatRow
                 icon={<Cpu className="w-3.5 h-3.5" />}
@@ -182,15 +198,10 @@ export const ServerDetailsPanel: React.FC<ServerDetailsPanelProps> = ({
               />
               <StatRow
                 icon={<HardDrive className="w-3.5 h-3.5" />}
-                label="Memory"
+                label="Memory Heap"
                 value={`${m?.memoryUsagePercent ?? '—'}%`}
                 bar={m?.memoryUsagePercent}
                 barColor="#6366f1"
-              />
-              <StatRow
-                icon={<Clock className="w-3.5 h-3.5" />}
-                label="Latency"
-                value={`${m?.responseTimeMs ?? '—'} ms`}
               />
             </div>
 
@@ -201,12 +212,12 @@ export const ServerDetailsPanel: React.FC<ServerDetailsPanelProps> = ({
               </p>
               <StatRow
                 icon={<Zap className="w-3.5 h-3.5" />}
-                label="Requests Routed"
+                label="Requests Handled"
                 value={(server.requestCount ?? m?.totalRequestsHandled ?? 0).toLocaleString()}
               />
               <StatRow
                 icon={<Activity className="w-3.5 h-3.5" />}
-                label="Throughput (RPS)"
+                label="Request Rate (RPS)"
                 value={`${server.requestsPerSecond ?? m?.requestsPerSecond ?? 0} req/s`}
               />
               <StatRow
@@ -215,15 +226,18 @@ export const ServerDetailsPanel: React.FC<ServerDetailsPanelProps> = ({
                 value={server.lastRequestAt ? new Date(server.lastRequestAt).toLocaleTimeString() : 'None yet'}
               />
               <StatRow
-                icon={<Users className="w-3.5 h-3.5" />}
-                label="Connections"
-                value={(m?.activeConnections ?? 0).toLocaleString()}
-              />
-              <StatRow
                 icon={<Activity className="w-3.5 h-3.5" />}
-                label="Capacity"
+                label="Capacity Quota"
                 value={`${server.capacity} req/s`}
               />
+              {server.lastMetricsAt && (
+                <div className="text-[10px] text-slate-500 flex justify-between pt-1">
+                  <span>Last Metrics Update</span>
+                  <span className="font-mono text-slate-400">
+                    {new Date(server.lastMetricsAt).toLocaleTimeString()}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Simulate Scaling button */}

@@ -31,6 +31,12 @@ export const config = {
   serverHost: process.env.SERVER_HOST || 'localhost',
   requestTimeoutMs: parseInt(process.env.REQUEST_TIMEOUT_MS || '3000', 10),
   healthCheckIntervalMs: parseInt(process.env.HEALTH_CHECK_INTERVAL_MS || '5000', 10),
+  monitorIntervalMs: parseInt(process.env.MONITOR_INTERVAL_MS || '5000', 10),
+  overloadThreshold: parseInt(process.env.OVERLOAD_THRESHOLD || '80', 10),
+  warningThreshold: parseInt(process.env.WARNING_THRESHOLD || '60', 10),
+  recoveryThreshold: parseInt(process.env.RECOVERY_THRESHOLD || '70', 10),
+  overloadConfirmationSamples: parseInt(process.env.OVERLOAD_CONFIRMATION_SAMPLES || '2', 10),
+  recoveryConfirmationSamples: parseInt(process.env.RECOVERY_CONFIRMATION_SAMPLES || '2', 10),
   maxLoadThreshold: parseInt(process.env.MAX_LOAD_THRESHOLD || '80', 10),
   expansionFactor: parseInt(process.env.EXPANSION_FACTOR || '3', 10),
 };

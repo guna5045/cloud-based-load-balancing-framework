@@ -12,7 +12,7 @@
  * - Server failure detection
  */
 
-import { ServerNode } from '../types/server.types';
+import { ServerNode, RemoteServerTelemetry } from '../types/server.types';
 import { config, getServerBaseUrl } from '../config/environment';
 import { logger } from '../utils/logger';
 
@@ -177,4 +177,37 @@ export const serverClient = {
       };
     }
   },
+
+  /**
+   * Retrieves telemetry from a remote server process.
+   *
+   * @param server Target server node
+   * @returns RemoteServerTelemetry or null if unreachable
+   */
+  async getTelemetry(server: ServerNode): Promise<RemoteServerTelemetry | null> {
+    const baseUrl = server.baseUrl || getServerBaseUrl(server.id);
+    const url = `${baseUrl}/telemetry`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const body = (await response.json()) as { success: boolean; data: RemoteServerTelemetry };
+      return body.data || null;
+    } catch {
+      clearTimeout(timeoutId);
+      return null;
+    }
+  },
 };
+

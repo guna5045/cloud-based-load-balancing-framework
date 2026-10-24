@@ -93,6 +93,12 @@ export const apiService = {
       routing: RoutingMetrics;
       topology: { totalServers: number; activeServers: number; maxDepth: number; averageLoadPercent: number };
       uptimeSeconds: number;
+      healthyServers?: number;
+      warningServers?: number;
+      overloadedServers?: number;
+      offlineServers?: number;
+      averageUtilization?: number;
+      servers?: Record<string, ServerNode>;
     };
   }> {
     const res = await fetch(`${env.apiUrl}/api/metrics`);
@@ -101,4 +107,30 @@ export const apiService = {
     }
     return res.json();
   },
+
+  /**
+   * Fetches recent monitoring history samples for charts
+   */
+  async getMonitoringHistory(serverId?: string, limit: number = 60): Promise<{
+    success: boolean;
+    count: number;
+    data: Array<{
+      timestamp: string;
+      serverId: string;
+      utilization: number;
+      load: number;
+      requestsPerSecond: number;
+      activeRequests: number;
+      averageProcessingTime: number;
+      status: string;
+    }>;
+  }> {
+    const query = serverId ? `?serverId=${encodeURIComponent(serverId)}&limit=${limit}` : `?limit=${limit}`;
+    const res = await fetch(`${env.apiUrl}/api/metrics/history${query}`);
+    if (!res.ok) {
+      throw new Error(`Failed to fetch monitoring history: ${res.status}`);
+    }
+    return res.json();
+  },
 };
+
