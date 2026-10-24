@@ -1,5 +1,5 @@
 import { ServerNode, TopologySummary } from '../types/server.types';
-import { config } from '../config/environment';
+import { config, getServerBaseUrl } from '../config/environment';
 
 /**
  * ServerTopologyModel
@@ -23,28 +23,34 @@ class ServerTopologyModel {
    */
   public initialize(): void {
     const timestamp = new Date().toISOString();
-    this.rootServers = config.initialServers.map((id) => ({
-      id,
-      parentId: null,
-      status: 'healthy',
-      load: 0,
-      capacity: 100,
-      children: [],
-      createdAt: timestamp,
-      metrics: {
-        activeConnections: 0,
-        totalRequestsHandled: 0,
-        cpuUsagePercent: 5,
-        memoryUsagePercent: 12,
-        responseTimeMs: 15,
+    this.rootServers = config.initialServers.map((id) => {
+      const port = config.serverPorts[id] || 3001;
+      return {
+        id,
+        parentId: null,
+        status: 'healthy',
+        load: 0,
+        capacity: 100,
+        children: [],
+        createdAt: timestamp,
+        host: config.serverHost,
+        port,
+        baseUrl: getServerBaseUrl(id),
+        metrics: {
+          activeConnections: 0,
+          totalRequestsHandled: 0,
+          cpuUsagePercent: 5,
+          memoryUsagePercent: 12,
+          responseTimeMs: 15,
+          requestCount: 0,
+          requestsPerSecond: 0,
+          lastRequestAt: null,
+        },
         requestCount: 0,
         requestsPerSecond: 0,
         lastRequestAt: null,
-      },
-      requestCount: 0,
-      requestsPerSecond: 0,
-      lastRequestAt: null,
-    }));
+      };
+    });
   }
 
   /**

@@ -13,7 +13,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { apiService } from '../services/api';
 import { getSocket } from '../services/socket';
-import { RoutingResult, RequestRecord, RoutingMetrics, RoutedSocketEvent } from '../types/server.types';
+import { RoutingResult, RequestRecord, RoutingMetrics, RoutedSocketEvent, ServerStatusEvent } from '../types/server.types';
 import { useSimulation } from '../context/SimulationContext';
 import { makeEvent } from '../data/topologySimulation';
 
@@ -142,9 +142,23 @@ export function useRealRouting(): UseRealRoutingReturn {
       });
     };
 
+    const onServerStatus = (data: ServerStatusEvent) => {
+      sim.updateServerStatus(data.serverId, data.status);
+      const isHealthy = data.status === 'healthy';
+      sim.addEvent(
+        makeEvent(
+          isHealthy ? 'success' : 'error',
+          `[REAL] Server ${data.serverId} is now ${data.status.toUpperCase()}${data.reason ? ` (${data.reason})` : ''}`,
+          data.serverId
+        )
+      );
+      refreshData();
+    };
+
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
     socket.on('request:routed', onRouted);
+    socket.on('server:status', onServerStatus);
 
     if (socket.connected) {
       setSocketConnected(true);
@@ -154,8 +168,9 @@ export function useRealRouting(): UseRealRoutingReturn {
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
       socket.off('request:routed', onRouted);
+      socket.off('server:status', onServerStatus);
     };
-  }, [sim]);
+  }, [sim, refreshData]);
 
   // ── Send single real request (POST /api/requests) ───────────────────────────
 

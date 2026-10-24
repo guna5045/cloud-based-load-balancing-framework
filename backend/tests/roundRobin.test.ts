@@ -19,6 +19,7 @@ import { roundRobinService } from '../src/services/roundRobinService';
 import { loadBalancerService, NoActiveServersError } from '../src/services/loadBalancerService';
 import { serverRegistry } from '../src/services/serverRegistry';
 import { serverTopology } from '../src/models/serverTopology';
+import { serverClient } from '../src/services/serverClient';
 
 interface TestResult {
   name: string;
@@ -45,6 +46,18 @@ async function runTestSuite(): Promise<void> {
   console.log('Project: Cloud-Based Load Balancing Framework');
   console.log('Focus: Real Round Robin Load Balancer & Request Routing');
   console.log('=============================================================\n');
+
+  // Stub HTTP client for fast algorithmic unit testing
+  serverClient.forwardRequest = async (server, requestId, clientPayload) => ({
+    success: true,
+    requestId,
+    serverId: server.id,
+    status: 'processed',
+    processingTime: 18,
+    message: `Request processed by ${server.id}`,
+    timestamp: new Date().toISOString(),
+    payload: clientPayload,
+  });
 
   // Reset to clean baseline
   loadBalancerService.reset();

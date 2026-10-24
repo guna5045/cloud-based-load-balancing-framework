@@ -7,7 +7,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { ServerNode } from '../types/server.types';
+import { ServerNode, ServerStatus } from '../types/server.types';
 import { LiveEvent } from '../data/mockData';
 import {
   TrafficRate,
@@ -72,6 +72,7 @@ export interface UseTopologySimulationReturn {
   emitRealParticle: (targetServerId: string, reqId: string, seq?: number) => void;
   addEvent: (event: LiveEvent) => void;
   recordRealServerHit: (serverId: string) => void;
+  updateServerStatus: (serverId: string, status: ServerStatus) => void;
 }
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
@@ -344,6 +345,16 @@ export function useTopologySimulation(): UseTopologySimulationReturn {
     );
   }, []);
 
+  // ── Update server operational status (e.g. healthy / offline from health monitor) ──
+  const updateServerStatus = useCallback((serverId: string, status: ServerStatus) => {
+    setServers((prev) =>
+      updateNode(prev, serverId, (node) => ({
+        ...node,
+        status,
+      }))
+    );
+  }, []);
+
   return {
     servers,
     resetTopology,
@@ -364,5 +375,6 @@ export function useTopologySimulation(): UseTopologySimulationReturn {
     emitRealParticle,
     addEvent,
     recordRealServerHit,
+    updateServerStatus,
   };
 }

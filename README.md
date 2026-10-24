@@ -73,26 +73,61 @@ cloud-based-load-balancing-framework/
 
 ---
 
-## 4. Current Phase: Phase 1 (Project Foundation)
+## 4. Current Phase: Phase 5 (Real Server Instances & HTTP Forwarding)
 
-### Completed in Phase 1:
-- Clean project structure and separation of concerns.
-- Node.js + Express backend with TypeScript, structured routes, and logging.
-- React + Vite + Tailwind CSS frontend with TypeScript.
-- Real-time Socket.IO communication bridge between frontend and backend.
-- Initial server topology model representing S1, S2, and S3 as a recursive tree data structure.
-- REST API structure (`/api/health`, `/api/servers`, `/api/topology`, `/api/requests`, `/api/metrics`).
-- Full environment configuration without hardcoded secrets.
+### Completed in Phase 5:
+- **Independent Server Instances**: Dedicated Express HTTP processes for `S1` (:3001), `S2` (:3002), and `S3` (:3003).
+- **Genuine HTTP Forwarding**: Backend Load Balancer (`:5000`) dynamically routes incoming requests over HTTP using native `fetch` with 3000ms timeout and abort controllers.
+- **Round-Robin Scheduling**: Persistent stateful pointer routing across healthy instances with fallback.
+- **Failure Detection & Failover**: Load balancer intercepts communication errors, marks target server `offline`, broadcasts `server:status` over Socket.IO, and automatically reroutes to the next healthy instance.
+- **Active Health Monitoring**: Periodic background health check (every 5s) pinging `GET /health` with automatic recovery detection.
+- **Local Telemetry & Request History**: Each server instance maintains its own throughput, latency stats, and bounded local request log.
+- **Frontend Real-Routing Integration**: Server port badges (`S1:3001`, `S2:3002`, `S3:3003`), real-time status updates via Socket.IO, and live latency feedback.
+- **Automated Test Suites**: 10/10 Round Robin unit tests and 17/17 Phase 5 integration tests (27/27 total tests passing).
 
-### Intentionally Postponed to Phase 2:
-- Round-Robin load distribution algorithm execution.
-- Recursive child node spawning triggers and burst traffic generation.
-- Request flow animations and advanced visualization graphs.
-- Production multi-machine deployment and containerization.
+> **Important Scope Notice:** Automatic scaling and dynamic child server creation (`S1.1`, etc.) have NOT been implemented yet and are intentionally scoped for Phase 6.
 
 ---
 
-## 5. Getting Started
+## 5. Architecture & Ports
+
+```text
+                      ┌───────────────┐
+                      │    Client     │
+                      └───────┬───────┘
+                              │ HTTP / Socket.IO
+                              ▼
+                 ┌───────────────────────────┐
+                 │       Frontend UI         │
+                 │   http://localhost:5173   │
+                 └─────────────┬─────────────┘
+                               │ REST / WS
+                               ▼
+                 ┌───────────────────────────┐
+                 │   Backend Load Balancer   │
+                 │   http://localhost:5000   │
+                 │   (Round Robin Scheduler) │
+                 └──────┬──────┬──────┬──────┘
+                        │      │      │ HTTP POST /process
+         ┌──────────────┘      │      └──────────────┐
+         ▼                     ▼                     ▼
+   ┌───────────┐         ┌───────────┐         ┌───────────┐
+   │    S1     │         │    S2     │         │    S3     │
+   │   :3001   │         │   :3002   │         │   :3003   │
+   └───────────┘         └───────────┘         └───────────┘
+```
+
+| Service | Port | Base URL | Responsibilities |
+|---|---|---|---|
+| **Frontend** | 5173 | `http://localhost:5173` | Dashboard, React Flow topology, interactive simulation & real routing modes |
+| **Load Balancer** | 5000 | `http://localhost:5000` | Round Robin scheduling, HTTP request forwarding, health monitoring, WebSocket broadcasting |
+| **Server S1** | 3001 | `http://localhost:3001` | Independent HTTP server process, `/process`, `/health`, `/telemetry` |
+| **Server S2** | 3002 | `http://localhost:3002` | Independent HTTP server process, `/process`, `/health`, `/telemetry` |
+| **Server S3** | 3003 | `http://localhost:3003` | Independent HTTP server process, `/process`, `/health`, `/telemetry` |
+
+---
+
+## 6. Getting Started
 
 ### Prerequisites
 - **Node.js**: v18.0.0 or later (v24 recommended)
@@ -100,70 +135,89 @@ cloud-based-load-balancing-framework/
 
 ### Installation
 
-Clone the repository and install all dependencies:
-
 ```bash
-# 1. Install root dependencies
+# Install root dependencies
 npm install
 
-# 2. Install backend dependencies
-cd backend
-npm install
-cp .env.example .env
-cd ..
-
-# 3. Install frontend dependencies
-cd frontend
-npm install
-cp .env.example .env
-cd ..
-```
-
-Or run the one-step convenience script from the root:
-```bash
+# Install all subproject dependencies (frontend, backend, servers)
 npm run install:all
 ```
 
 ---
 
-## 6. Running the Project
+## 7. Running the Framework
 
-### Option A: Run Both Concurrently (Recommended)
-From the project root:
+### Option A: Run Full Stack Concurrently (Recommended)
+From the root directory:
 ```bash
-npm run dev
+npm run dev:all
 ```
+This boots all 5 services concurrently:
+- Load Balancer on `http://localhost:5000`
+- Frontend Dashboard on `http://localhost:5173`
+- Server S1 on `http://localhost:3001`
+- Server S2 on `http://localhost:3002`
+- Server S3 on `http://localhost:3003`
 
 ### Option B: Run Services Separately
 
-**Terminal 1 (Backend):**
+**Terminal 1 — Server Instances (`S1`, `S2`, `S3`):**
+```bash
+npm run servers
+# Or individually:
+# npm run server:s1   (port 3001)
+# npm run server:s2   (port 3002)
+# npm run server:s3   (port 3003)
+```
+
+**Terminal 2 — Backend Load Balancer:**
 ```bash
 cd backend
 npm run dev
 ```
-Backend will start at: `http://localhost:5000`  
-Health check endpoint: `http://localhost:5000/api/health`
 
-**Terminal 2 (Frontend):**
+**Terminal 3 — Frontend Dashboard:**
 ```bash
 cd frontend
 npm run dev
 ```
-Frontend will start at: `http://localhost:5173`
 
 ---
 
-## 7. Verification Endpoints
+## 8. Verification & API Endpoints
 
-Once the backend is running, verify with:
-
+### Load Balancer Endpoints (`:5000`):
 - **Health check**: `GET http://localhost:5000/api/health`
 - **Topology snapshot**: `GET http://localhost:5000/api/topology`
 - **All servers list**: `GET http://localhost:5000/api/servers`
 - **Single server**: `GET http://localhost:5000/api/servers/S1`
+- **Route request**: `POST http://localhost:5000/api/requests` with `{"payload": { ... }}`
+- **Request history**: `GET http://localhost:5000/api/requests`
 - **System metrics**: `GET http://localhost:5000/api/metrics`
+
+### Direct Server Instance Endpoints (`:3001`, `:3002`, `:3003`):
+- **Server Health**: `GET http://localhost:3001/health`
+- **Direct Process**: `POST http://localhost:3001/process`
+- **Server Telemetry**: `GET http://localhost:3001/telemetry`
+- **Server Requests**: `GET http://localhost:3001/requests`
 
 ---
 
-## 8. License
+## 9. Running Tests
+
+```bash
+# Run all backend tests (Round Robin unit tests + Phase 5 integration tests)
+cd backend
+npm run test:all
+
+# Run Phase 5 integration tests specifically
+npm run test:phase5
+
+# Run Round Robin unit tests
+npm run test:rr
+```
+
+---
+
+## 10. License
 Academic Project - Computer Networks Course.

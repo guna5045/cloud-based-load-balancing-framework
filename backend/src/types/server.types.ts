@@ -23,6 +23,16 @@ export interface ServerNode {
   requestCount?: number;
   requestsPerSecond?: number;
   lastRequestAt?: string | null;
+  host?: string;
+  port?: number;
+  baseUrl?: string;
+}
+
+export interface ServerStatusEvent {
+  serverId: string;
+  status: ServerStatus;
+  reason?: string;
+  timestamp: string;
 }
 
 export interface TopologySummary {

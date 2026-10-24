@@ -7,11 +7,17 @@
     "dev": "concurrently -n \"BACKEND,FRONTEND\" -c \"blue,green\" \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
     "dev:backend": "npm run dev --prefix backend",
     "dev:frontend": "npm run dev --prefix frontend",
-    "build": "npm run build --prefix backend && npm run build --prefix frontend",
-    "install:all": "npm install && npm install --prefix backend && npm install --prefix frontend"
+    "server:s1": "tsx servers/src/server.ts S1 3001",
+    "server:s2": "tsx servers/src/server.ts S2 3002",
+    "server:s3": "tsx servers/src/server.ts S3 3003",
+    "servers": "concurrently -n \"S1,S2,S3\" -c \"blue,magenta,cyan\" \"npm run server:s1\" \"npm run server:s2\" \"npm run server:s3\"",
+    "dev:all": "concurrently -n \"LB,UI,S1,S2,S3\" -c \"blue,green,cyan,magenta,yellow\" \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run server:s1\" \"npm run server:s2\" \"npm run server:s3\"",
+    "build": "npm run build --prefix backend && npm run build --prefix frontend && npm run build --prefix servers",
+    "install:all": "npm install && npm install --prefix backend && npm install --prefix frontend && npm install --prefix servers"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "tsx": "^4.23.15"
   },
   "author": "",
   "license": "ISC"

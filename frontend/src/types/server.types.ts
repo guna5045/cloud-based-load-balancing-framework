@@ -99,3 +99,10 @@ export interface RoutedSocketEvent {
   processingTime: number;
   timestamp: string;
 }
+
+export interface ServerStatusEvent {
+  serverId: string;
+  status: ServerStatus;
+  reason?: string;
+  timestamp: string;
+}

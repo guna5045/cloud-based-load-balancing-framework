@@ -8,6 +8,8 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "test": "tsx tests/roundRobin.test.ts",
+    "test:phase5": "tsx tests/phase5.test.ts",
+    "test:all": "tsx tests/roundRobin.test.ts && tsx tests/phase5.test.ts",
     "start": "node dist/server.js",
     "lint": "eslint src --ext .ts",
     "format": "prettier --write \"src/**/*.ts\""

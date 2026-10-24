@@ -9,7 +9,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Send, Zap, Play, Pause, RefreshCw, Cpu, Activity, CheckCircle2 } from 'lucide-react';
+import { Send, Zap, Play, Pause, RefreshCw, Cpu, Activity, CheckCircle2, Server } from 'lucide-react';
 import { UseRealRoutingReturn } from '../hooks/useRealRouting';
 
 interface RealRoutingControlsProps {
@@ -57,6 +57,16 @@ export const RealRoutingControls: React.FC<RealRoutingControlsProps> = ({ routin
             <span className="text-slate-400 text-[10px] font-mono">
               {socketConnected ? 'Socket.IO Live' : 'Connecting...'}
             </span>
+          </div>
+
+          {/* Independent Server Instances */}
+          <div className="hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-900/80 border border-slate-800 text-[10px] font-mono text-slate-400">
+            <Server className="w-3 h-3 text-slate-400" />
+            <span className="text-blue-300">S1:3001</span>
+            <span className="text-slate-600">·</span>
+            <span className="text-indigo-300">S2:3002</span>
+            <span className="text-slate-600">·</span>
+            <span className="text-purple-300">S3:3003</span>
           </div>
         </div>
 
