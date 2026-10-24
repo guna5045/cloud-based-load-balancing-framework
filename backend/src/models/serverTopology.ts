@@ -37,7 +37,13 @@ class ServerTopologyModel {
         cpuUsagePercent: 5,
         memoryUsagePercent: 12,
         responseTimeMs: 15,
+        requestCount: 0,
+        requestsPerSecond: 0,
+        lastRequestAt: null,
       },
+      requestCount: 0,
+      requestsPerSecond: 0,
+      lastRequestAt: null,
     }));
   }
 

@@ -22,6 +22,7 @@ import {
   applyOverload,
   spawnChildren,
   nudgeLoads,
+  updateNode,
   countNodes,
   getMaxDepth,
   makeEvent,
@@ -66,6 +67,11 @@ export interface UseTopologySimulationReturn {
   // ── Events & metrics
   events: LiveEvent[];
   metrics: SimulationMetrics;
+
+  // ── Real routing particle & event bridges
+  emitRealParticle: (targetServerId: string, reqId: string, seq?: number) => void;
+  addEvent: (event: LiveEvent) => void;
+  recordRealServerHit: (serverId: string) => void;
 }
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
@@ -291,6 +297,53 @@ export function useTopologySimulation(): UseTopologySimulationReturn {
     };
   }, []);
 
+  // ── Emit real routed particle across topology ──────────────────────────────
+  const emitRealParticle = useCallback((targetServerId: string, _reqId: string, seq?: number) => {
+    const pathIds = ['__lb__', ...getHierarchyPath(serversRef.current, targetServerId)];
+    const reqNum = seq ?? (requestCounterRef.current + 1);
+    if (!seq) {
+      setRequestCounter((prev) => prev + 1);
+    }
+
+    const particle: RequestParticle = {
+      id: `p-real-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      path: pathIds,
+      segmentIndex: 0,
+      createdAt: Date.now(),
+      targetServerId,
+      requestNumber: reqNum,
+    };
+
+    setParticles((prev) => [...prev.slice(-8), particle]);
+
+    // Auto-remove particle after animation completes
+    setTimeout(() => {
+      setParticles((prev) => prev.filter((p) => p.id !== particle.id));
+    }, 1800);
+  }, []);
+
+  // ── Increment node telemetry for real request hit ──────────────────────────
+  const recordRealServerHit = useCallback((serverId: string) => {
+    setServers((prev) =>
+      updateNode(prev, serverId, (node) => {
+        const currentCount = (node.metrics?.totalRequestsHandled ?? 0) + 1;
+        const nextLoad = Math.min(65, node.load + 3);
+        return {
+          ...node,
+          load: nextLoad,
+          metrics: node.metrics
+            ? {
+                ...node.metrics,
+                totalRequestsHandled: currentCount,
+                requestCount: currentCount,
+                cpuUsagePercent: Math.round(nextLoad * 0.8),
+              }
+            : undefined,
+        };
+      })
+    );
+  }, []);
+
   return {
     servers,
     resetTopology,
@@ -308,5 +361,8 @@ export function useTopologySimulation(): UseTopologySimulationReturn {
     canScale,
     events,
     metrics,
+    emitRealParticle,
+    addEvent,
+    recordRealServerHit,
   };
 }

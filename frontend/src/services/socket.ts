@@ -7,11 +7,13 @@ export const getSocket = (): Socket => {
   if (!socket) {
     socket = io(env.wsUrl, {
       transports: ['websocket', 'polling'],
-      autoConnect: false,
+      autoConnect: true,
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
     });
+  } else if (!socket.connected) {
+    socket.connect();
   }
   return socket;
 };

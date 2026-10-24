@@ -197,17 +197,27 @@ export const ServerDetailsPanel: React.FC<ServerDetailsPanelProps> = ({
             {/* Traffic */}
             <div className="space-y-3">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-                Traffic
+                Traffic & Routing
               </p>
+              <StatRow
+                icon={<Zap className="w-3.5 h-3.5" />}
+                label="Requests Routed"
+                value={(server.requestCount ?? m?.totalRequestsHandled ?? 0).toLocaleString()}
+              />
+              <StatRow
+                icon={<Activity className="w-3.5 h-3.5" />}
+                label="Throughput (RPS)"
+                value={`${server.requestsPerSecond ?? m?.requestsPerSecond ?? 0} req/s`}
+              />
+              <StatRow
+                icon={<Clock className="w-3.5 h-3.5" />}
+                label="Last Request"
+                value={server.lastRequestAt ? new Date(server.lastRequestAt).toLocaleTimeString() : 'None yet'}
+              />
               <StatRow
                 icon={<Users className="w-3.5 h-3.5" />}
                 label="Connections"
                 value={(m?.activeConnections ?? 0).toLocaleString()}
-              />
-              <StatRow
-                icon={<Zap className="w-3.5 h-3.5" />}
-                label="Requests Served"
-                value={(m?.totalRequestsHandled ?? 0).toLocaleString()}
               />
               <StatRow
                 icon={<Activity className="w-3.5 h-3.5" />}

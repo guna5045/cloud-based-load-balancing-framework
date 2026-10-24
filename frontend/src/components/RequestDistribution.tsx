@@ -6,6 +6,7 @@ import { RequestDistributionEntry } from '../data/mockData';
 
 interface RequestDistributionProps {
   data: RequestDistributionEntry[];
+  isRealData?: boolean;
 }
 
 const COLORS = ['#3b82f6', '#6366f1', '#8b5cf6', '#a78bfa'];
@@ -30,15 +31,22 @@ const TOOLTIP = ({
   );
 };
 
-export const RequestDistribution: React.FC<RequestDistributionProps> = ({ data }) => {
+export const RequestDistribution: React.FC<RequestDistributionProps> = ({ data, isRealData }) => {
   return (
     <div className="card p-4 flex flex-col gap-3">
       <div className="flex items-center gap-2">
         <Share2 className="w-4 h-4 text-indigo-400" />
         <span className="font-semibold text-sm text-slate-200">Request Distribution</span>
-        <span className="ml-auto text-[10px] text-slate-500 font-mono uppercase tracking-wider">
-          Round Robin
-        </span>
+        <div className="ml-auto flex items-center gap-1.5">
+          {isRealData && (
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+              REAL
+            </span>
+          )}
+          <span className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">
+            Round Robin
+          </span>
+        </div>
       </div>
 
       {/* Bar chart */}
@@ -99,8 +107,10 @@ export const RequestDistribution: React.FC<RequestDistributionProps> = ({ data }
         ))}
       </div>
 
-      <p className="text-[10px] text-slate-600 pt-1">
-        * Mock data — live Round Robin routing in Phase 3
+      <p className="text-[10px] text-slate-500 pt-1">
+        {isRealData
+          ? '* Live backend telemetry from Phase 4 Round Robin load balancer'
+          : '* Simulation data — switch to Real Mode for live backend routing'}
       </p>
     </div>
   );

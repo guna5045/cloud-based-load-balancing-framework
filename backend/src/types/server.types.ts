@@ -6,6 +6,9 @@ export interface ServerMetrics {
   cpuUsagePercent: number;
   memoryUsagePercent: number;
   responseTimeMs: number;
+  requestCount?: number;
+  requestsPerSecond?: number;
+  lastRequestAt?: string | null;
 }
 
 export interface ServerNode {
@@ -17,6 +20,9 @@ export interface ServerNode {
   children: ServerNode[];
   createdAt: string;
   metrics?: ServerMetrics;
+  requestCount?: number;
+  requestsPerSecond?: number;
+  lastRequestAt?: string | null;
 }
 
 export interface TopologySummary {

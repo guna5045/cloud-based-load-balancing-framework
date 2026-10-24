@@ -1,5 +1,12 @@
 import { env } from '../utils/env';
-import { HealthResponse, TopologySummary, ServerNode } from '../types/server.types';
+import {
+  HealthResponse,
+  TopologySummary,
+  ServerNode,
+  RoutingResult,
+  RequestRecord,
+  RoutingMetrics,
+} from '../types/server.types';
 
 export const apiService = {
   /**
@@ -42,6 +49,55 @@ export const apiService = {
     const res = await fetch(`${env.apiUrl}/api/servers/${encodeURIComponent(id)}`);
     if (!res.ok) {
       throw new Error(`Server ${id} not found`);
+    }
+    return res.json();
+  },
+
+  /**
+   * Dispatches a real client request through the Round Robin load balancer.
+   */
+  async submitRequest(payload?: unknown): Promise<RoutingResult> {
+    const res = await fetch(`${env.apiUrl}/api/requests`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload ?? { client: 'web-dashboard' }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+      throw new Error(err.error || `Request failed with status ${res.status}`);
+    }
+
+    return res.json();
+  },
+
+  /**
+   * Fetches recent request routing history
+   */
+  async getRequests(limit: number = 50): Promise<{ success: boolean; count: number; data: RequestRecord[] }> {
+    const res = await fetch(`${env.apiUrl}/api/requests?limit=${limit}`);
+    if (!res.ok) {
+      throw new Error(`Failed to fetch requests: ${res.status}`);
+    }
+    return res.json();
+  },
+
+  /**
+   * Fetches real routing metrics and cluster telemetry
+   */
+  async getMetrics(): Promise<{
+    success: boolean;
+    data: {
+      routing: RoutingMetrics;
+      topology: { totalServers: number; activeServers: number; maxDepth: number; averageLoadPercent: number };
+      uptimeSeconds: number;
+    };
+  }> {
+    const res = await fetch(`${env.apiUrl}/api/metrics`);
+    if (!res.ok) {
+      throw new Error(`Failed to fetch metrics: ${res.status}`);
     }
     return res.json();
   },
