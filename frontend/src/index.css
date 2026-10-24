@@ -4,12 +4,114 @@
 
 :root {
   color-scheme: dark;
+  --sidebar-width: 240px;
 }
 
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
-    Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    margin: 0;
+    background: #050a12;
+    color: #e2e8f0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    overflow-x: hidden;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #334155;
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #475569;
+  }
+}
+
+@layer components {
+  /* ─── Glass card ──────────────────────────────────────── */
+  .card {
+    @apply bg-slate-900/70 border border-slate-800/80 rounded-xl backdrop-blur-sm;
+  }
+
+  /* ─── Status dot ──────────────────────────────────────── */
+  .status-dot {
+    @apply w-2 h-2 rounded-full inline-block;
+  }
+
+  /* ─── KPI number ──────────────────────────────────────── */
+  .kpi-value {
+    @apply text-3xl font-bold tabular-nums tracking-tight;
+  }
+}
+
+/* ─── Animated topology edge (SVG line dash animation) ─ */
+@keyframes dash-flow {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+.edge-animated {
+  animation: dash-flow 1.2s linear infinite;
+}
+
+/* ─── Particle travel animation ──────────────────────── */
+@keyframes particle-travel {
+  0%   { offset-distance: 0%;   opacity: 1; }
+  90%  { opacity: 1; }
+  100% { offset-distance: 100%; opacity: 0; }
+}
+
+.particle {
+  animation: particle-travel 1.5s ease-in-out infinite;
+}
+
+/* ─── Pulse ring for overloaded nodes ─────────────────── */
+@keyframes pulse-ring {
+  0%   { transform: scale(1);   opacity: 0.6; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+
+.pulse-ring {
+  animation: pulse-ring 1.4s ease-out infinite;
+}
+
+/* ─── Smooth number counter animation ─────────────────── */
+@keyframes count-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.count-up {
+  animation: count-up 0.4s ease-out;
+}
+
+/* ─── React Flow overrides ─────────────────────────────── */
+.react-flow__renderer {
+  background: transparent !important;
+}
+
+.react-flow__pane {
+  cursor: default;
+}
+
+/* ─── Recharts tooltip ──────────────────────────────────── */
+.recharts-tooltip-wrapper {
+  outline: none !important;
 }
