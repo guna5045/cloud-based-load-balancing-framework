@@ -1,100 +1,87 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+/**
+ * DashboardPage.tsx  (Phase 3 — simulation-integrated)
+ *
+ * Main dashboard for the Cloud-Based Load Balancing Framework.
+ * Uses the shared SimulationContext for live topology and KPI data.
+ */
+
+import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import {
-  Activity,
-  Server,
-  Clock,
-  Cpu,
-  Zap,
-} from 'lucide-react';
+import { Activity, Server, Clock, Cpu, Zap } from 'lucide-react';
 import { MetricCard } from '../components/MetricCard';
 import { TopologyGraph } from '../components/TopologyGraph';
 import { ServerDetailsPanel } from '../components/ServerDetailsPanel';
 import { UtilizationChart } from '../components/UtilizationChart';
 import { RequestDistribution } from '../components/RequestDistribution';
 import { EventFeed } from '../components/EventFeed';
-import { apiService } from '../services/api';
-import { ServerNode } from '../types/server.types';
-import {
-  mockKpi,
-  mockRequestDistribution,
-  mockTimeSeries,
-  mockEvents,
-  buildMockTopology,
-  LiveEvent,
-} from '../data/mockData';
-
-/* ─── Page ──────────────────────────────────────────────────────────────────── */
+import { useSimulation } from '../context/SimulationContext';
+import { mockTimeSeries } from '../data/mockData';
+import { getHierarchyPath, countNodes } from '../data/topologySimulation';
 
 export const DashboardPage: React.FC = () => {
-  /* ── Backend topology state (replaces mock when API is available) ── */
-  const [liveServers, setLiveServers] = useState<ServerNode[]>([]);
-  const [topologyLoading, setTopologyLoading] = useState(true);
-  const [selectedServerId, setSelectedServerId] = useState<string | null>(null);
-  const [events, setEvents] = useState<LiveEvent[]>(mockEvents);
+  const sim = useSimulation();
 
-  /* ── Mock fallback topology ── */
-  const mockServers = useMemo(() => buildMockTopology(), []);
+  // Active particle path for edge highlighting
+  const activePath = useMemo(() => {
+    if (sim.particles.length === 0) return [];
+    const latest = sim.particles[sim.particles.length - 1];
+    return latest?.path ?? [];
+  }, [sim.particles]);
 
-  /* ── Merge: use live if available, else mock ── */
-  const servers = liveServers.length > 0 ? liveServers : mockServers;
+  // Hierarchy path for selected server
+  const hierarchyPath = useMemo(() => {
+    if (!sim.selectedServerId) return [];
+    return getHierarchyPath(sim.servers, sim.selectedServerId);
+  }, [sim.selectedServerId, sim.servers]);
 
-  /* ── Fetch live topology ── */
-  const fetchTopology = useCallback(async () => {
-    try {
-      setTopologyLoading(true);
-      const res = await apiService.getTopology();
-      if (res.success && res.data?.servers?.length) {
-        setLiveServers(res.data.servers);
-      }
-    } catch {
-      // Silently fall back to mock data
-    } finally {
-      setTopologyLoading(false);
-    }
-  }, []);
+  // Compute live KPIs from simulation state
+  const activeNodes = useMemo(() => countNodes(sim.servers), [sim.servers]);
 
-  useEffect(() => {
-    fetchTopology();
-  }, [fetchTopology]);
-
-  /* ── Simulate a new event every 5 seconds ── */
-  useEffect(() => {
-    const msgs = [
-      { type: 'request' as const, message: 'Request routed to S1 via Round Robin', serverId: 'S1' },
-      { type: 'request' as const, message: 'Request routed to S2 via Round Robin', serverId: 'S2' },
-      { type: 'request' as const, message: 'Request routed to S3 via Round Robin', serverId: 'S3' },
-      { type: 'info' as const, message: 'Health check passed — all nodes nominal' },
-    ];
-    let idx = 0;
-    const interval = setInterval(() => {
-      const m = msgs[idx % msgs.length];
-      setEvents((prev) => [
-        { id: `sim-${Date.now()}`, ...m, timestamp: new Date().toISOString() },
-        ...prev.slice(0, 49),
-      ]);
-      idx++;
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
-  /* ── Selected server node ── */
-  const selectedServer = useMemo(() => {
-    if (!selectedServerId) return null;
-    const walk = (nodes: ServerNode[]): ServerNode | null => {
+  const avgLoad = useMemo(() => {
+    const all: number[] = [];
+    const walk = (nodes: typeof sim.servers) => {
       for (const n of nodes) {
-        if (n.id === selectedServerId) return n;
-        const found = walk(n.children);
-        if (found) return found;
+        all.push(n.load);
+        walk(n.children);
       }
-      return null;
     };
-    return walk(servers);
-  }, [selectedServerId, servers]);
+    walk(sim.servers);
+    return all.length > 0 ? Math.round(all.reduce((a, b) => a + b, 0) / all.length) : 0;
+  }, [sim.servers]);
+
+  const avgLatency = useMemo(() => {
+    const all: number[] = [];
+    const walk = (nodes: typeof sim.servers) => {
+      for (const n of nodes) {
+        if (n.metrics?.responseTimeMs) all.push(n.metrics.responseTimeMs);
+        walk(n.children);
+      }
+    };
+    walk(sim.servers);
+    return all.length > 0 ? Math.round(all.reduce((a, b) => a + b, 0) / all.length) : 0;
+  }, [sim.servers]);
+
+  // Request distribution from active servers
+  const requestDistribution = useMemo(() => {
+    const leaves: typeof sim.servers = [];
+    const walk = (nodes: typeof sim.servers) => {
+      for (const n of nodes) {
+        if (n.children.length === 0) leaves.push(n);
+        walk(n.children);
+      }
+    };
+    walk(sim.servers);
+    const total = leaves.reduce((a, n) => a + (n.metrics?.totalRequestsHandled ?? 0), 0);
+    return leaves.map((n) => ({
+      serverId: n.id,
+      requests: n.metrics?.totalRequestsHandled ?? 0,
+      percentage: total > 0 ? Math.round(((n.metrics?.totalRequestsHandled ?? 0) / total) * 100) : 0,
+    }));
+  }, [sim.servers]);
 
   return (
     <div className="flex flex-col gap-5 p-5 h-full overflow-y-auto">
-      {/* KPI row */}
+      {/* KPI row — live from simulation state */}
       <motion.div
         initial="hidden"
         animate="visible"
@@ -106,21 +93,21 @@ export const DashboardPage: React.FC = () => {
       >
         <MetricCard
           title="Total Requests"
-          value={mockKpi.totalRequests}
+          value={sim.metrics.totalRequests}
           icon={Activity}
           accentColor="text-blue-400"
-          description="Since last restart"
+          description="Simulated — since startup"
         />
         <MetricCard
-          title="Active Servers"
-          value={mockKpi.activeServers}
+          title="Active Nodes"
+          value={activeNodes}
           icon={Server}
           accentColor="text-emerald-400"
-          description="Root pool: S1, S2, S3"
+          description={`Max depth: ${sim.metrics.maxDepth}`}
         />
         <MetricCard
           title="Avg Response"
-          value={mockKpi.avgResponseTimeMs}
+          value={avgLatency}
           unit="ms"
           icon={Clock}
           accentColor="text-indigo-400"
@@ -128,18 +115,18 @@ export const DashboardPage: React.FC = () => {
         />
         <MetricCard
           title="System Load"
-          value={mockKpi.systemLoadPercent}
+          value={avgLoad}
           unit="%"
           icon={Cpu}
           accentColor="text-amber-400"
-          description="Weighted cluster load"
+          description="Weighted average load"
         />
         <MetricCard
           title="Scaling Events"
-          value={mockKpi.scalingEvents}
+          value={sim.metrics.scalingEvents}
           icon={Zap}
           accentColor="text-violet-400"
-          description="Phase 3 logic pending"
+          description="Triggered this session"
         />
       </motion.div>
 
@@ -147,18 +134,24 @@ export const DashboardPage: React.FC = () => {
       <div className="flex gap-4">
         <div className="flex-1 min-w-0">
           <TopologyGraph
-            servers={servers}
-            selectedServerId={selectedServerId}
-            onSelectServer={setSelectedServerId}
-            loading={topologyLoading}
-            onRefresh={fetchTopology}
+            servers={sim.servers}
+            selectedServerId={sim.selectedServerId}
+            onSelectServer={sim.setSelectedServerId}
+            activePath={activePath}
+            scaling={sim.scaling}
+            particles={sim.particles}
+            height={440}
           />
         </div>
 
-        {selectedServer && (
+        {sim.selectedServer && (
           <ServerDetailsPanel
-            server={selectedServer}
-            onClose={() => setSelectedServerId(null)}
+            server={sim.selectedServer}
+            onClose={() => sim.setSelectedServerId(null)}
+            hierarchyPath={hierarchyPath}
+            onTriggerScaling={sim.triggerScaling}
+            canScale={sim.canScale(sim.selectedServerId!)}
+            scalingInProgress={sim.scaling.step !== 'idle'}
           />
         )}
       </div>
@@ -168,11 +161,15 @@ export const DashboardPage: React.FC = () => {
         <div className="lg:col-span-2">
           <UtilizationChart data={mockTimeSeries} />
         </div>
-        <RequestDistribution data={mockRequestDistribution} />
+        <RequestDistribution data={requestDistribution.length > 0 ? requestDistribution : [
+          { serverId: 'S1', requests: 8194, percentage: 33 },
+          { serverId: 'S2', requests: 8401, percentage: 34 },
+          { serverId: 'S3', requests: 7987, percentage: 33 },
+        ]} />
       </div>
 
-      {/* Event feed */}
-      <EventFeed events={events} />
+      {/* Live event feed from simulation */}
+      <EventFeed events={sim.events} />
     </div>
   );
 };

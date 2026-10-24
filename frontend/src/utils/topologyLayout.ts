@@ -1,20 +1,23 @@
-import { ServerNode } from '../types/server.types';
-import { Node, Edge } from '@xyflow/react';
-
 /**
- * Converts the recursive ServerNode tree into a flat list of React Flow
- * nodes and edges. Uses Reingold–Tilford-inspired horizontal spacing.
+ * topologyLayout.ts  (Phase 3 — improved)
  *
- * @param servers   Root-level server nodes from the backend
- * @param onSelect  Callback when a node is clicked
- * @param selected  Currently selected server ID
+ * Converts the recursive ServerNode tree into a flat list of React Flow
+ * nodes and edges using a proper Reingold–Tilford-style horizontal layout.
+ *
+ * Works for arbitrary depth trees. Keeps sibling subtrees balanced.
+ * Supports active path highlighting, scaling state, and hover-tooltip data.
  */
 
-const H_GAP = 60;    // horizontal gap between sibling subtrees
-const V_GAP = 110;   // vertical gap between tree levels
-const LB_X = 0;
-const LB_Y = 0;
-const NODE_W = 148;  // root-level node width
+import { ServerNode } from '../types/server.types';
+import { Node, Edge } from '@xyflow/react';
+import { ScalingState } from '../hooks/useTopologySimulation';
+
+// ─── Layout constants ─────────────────────────────────────────────────────────
+
+const H_GAP   = 52;   // horizontal gap between sibling subtrees
+const V_GAP   = 108;  // vertical gap between tree levels
+const LB_Y    = 0;
+const NODE_W  = 152;  // node width (all depths — we scale the card inside)
 
 // ─── Recursive width calculator ───────────────────────────────────────────────
 
@@ -34,86 +37,142 @@ function buildSubtree(
   cy: number,
   onSelect: (id: string) => void,
   selected: string | null,
+  activePath: Set<string>,
+  scaling: ScalingState,
   nodes: Node[],
   edges: Edge[]
 ): void {
+  const isSelected = node.id === selected;
+  const isOnActivePath = activePath.has(node.id);
+  const isScaling =
+    scaling.serverId === node.id && scaling.step !== 'idle';
+
   nodes.push({
     id: node.id,
     type: 'serverNode',
     position: { x: cx - NODE_W / 2, y: cy },
     data: {
       server: node,
-      isSelected: node.id === selected,
+      isSelected,
+      isOnActivePath,
+      isScaling,
+      scalingStep: scaling.serverId === node.id ? scaling.step : 'idle',
       onSelect,
     },
   });
 
   if (node.children.length === 0) return;
 
-  // Position children
-  const totalW = node.children.map(subtreeWidth).reduce((a, b) => a + b, 0)
-    + (node.children.length - 1) * H_GAP;
+  // Compute total width of all children
+  const childWidths = node.children.map(subtreeWidth);
+  const totalW =
+    childWidths.reduce((a, b) => a + b, 0) +
+    (node.children.length - 1) * H_GAP;
 
   let startX = cx - totalW / 2;
-  for (const child of node.children) {
-    const cw = subtreeWidth(child);
+
+  for (let i = 0; i < node.children.length; i++) {
+    const child = node.children[i];
+    const cw = childWidths[i];
     const childCx = startX + cw / 2;
+
+    const isActiveEdge =
+      activePath.has(node.id) && activePath.has(child.id);
 
     edges.push({
       id: `e-${node.id}-${child.id}`,
       source: node.id,
       target: child.id,
       type: 'smoothstep',
-      animated: true,
-      style: { stroke: '#334155', strokeWidth: 1.5 },
+      animated: isActiveEdge,
+      style: {
+        stroke: isActiveEdge ? '#3b82f6' : '#1e293b',
+        strokeWidth: isActiveEdge ? 2.5 : 1.5,
+        opacity: activePath.size > 0 && !isActiveEdge ? 0.35 : 1,
+      },
     });
 
-    buildSubtree(child, childCx, cy + V_GAP, onSelect, selected, nodes, edges);
+    buildSubtree(child, childCx, cy + V_GAP, onSelect, selected, activePath, scaling, nodes, edges);
     startX += cw + H_GAP;
   }
 }
 
 // ─── Public builder ───────────────────────────────────────────────────────────
 
-export function buildFlowGraph(
-  servers: ServerNode[],
-  onSelect: (id: string) => void,
-  selected: string | null
-): { nodes: Node[]; edges: Edge[] } {
+export interface BuildFlowGraphOptions {
+  servers: ServerNode[];
+  onSelect: (id: string) => void;
+  selected: string | null;
+  /** IDs of nodes on the current active request path */
+  activePath?: string[];
+  scaling?: ScalingState;
+}
+
+export function buildFlowGraph({
+  servers,
+  onSelect,
+  selected,
+  activePath = [],
+  scaling = { serverId: null, step: 'idle' },
+}: BuildFlowGraphOptions): { nodes: Node[]; edges: Edge[] } {
   const nodes: Node[] = [];
   const edges: Edge[] = [];
+  const activePathSet = new Set(activePath);
 
-  // Synthetic Load Balancer node at top
+  // ── Load Balancer synthetic root ───────────────────────────────────────────
+
   nodes.push({
     id: '__lb__',
     type: 'lbNode',
-    position: { x: LB_X - 76, y: LB_Y },
-    data: {},
+    position: { x: -76, y: LB_Y },
+    data: {
+      isOnActivePath: activePath.includes('__lb__'),
+    },
     draggable: false,
   });
 
   if (servers.length === 0) return { nodes, edges };
 
-  // Layout root servers at depth 1
+  // ── Layout root servers ────────────────────────────────────────────────────
+
   const rootWidths = servers.map(subtreeWidth);
-  const totalRootW = rootWidths.reduce((a, b) => a + b, 0) + (servers.length - 1) * H_GAP;
-  let startX = LB_X - totalRootW / 2;
+  const totalRootW =
+    rootWidths.reduce((a, b) => a + b, 0) + (servers.length - 1) * H_GAP;
+  let startX = -totalRootW / 2;
 
   for (let i = 0; i < servers.length; i++) {
     const server = servers[i];
     const rw = rootWidths[i];
     const rootCx = startX + rw / 2;
 
+    const isActiveEdge =
+      activePathSet.has('__lb__') && activePathSet.has(server.id);
+
     edges.push({
       id: `e-lb-${server.id}`,
       source: '__lb__',
       target: server.id,
       type: 'smoothstep',
-      animated: true,
-      style: { stroke: '#1d4ed8', strokeWidth: 2 },
+      animated: isActiveEdge,
+      style: {
+        stroke: isActiveEdge ? '#3b82f6' : '#1d4ed8',
+        strokeWidth: isActiveEdge ? 2.5 : 2,
+        opacity: activePath.length > 0 && !isActiveEdge ? 0.3 : 1,
+      },
     });
 
-    buildSubtree(server, rootCx, LB_Y + V_GAP, onSelect, selected, nodes, edges);
+    buildSubtree(
+      server,
+      rootCx,
+      LB_Y + V_GAP,
+      onSelect,
+      selected,
+      activePathSet,
+      scaling,
+      nodes,
+      edges
+    );
+
     startX += rw + H_GAP;
   }
 

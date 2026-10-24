@@ -8,22 +8,25 @@ import { RequestsPage } from './pages/RequestsPage';
 import { AutoScalingPage } from './pages/AutoScalingPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { EventsPage } from './pages/EventsPage';
+import { SimulationProvider } from './context/SimulationContext';
 
 export const App: React.FC = () => {
   return (
-    <BrowserRouter>
-      <DashboardLayout>
-        <Routes>
-          <Route path="/" element={<DashboardPage />} />
-          <Route path="/topology" element={<TopologyPage />} />
-          <Route path="/servers" element={<ServersPage />} />
-          <Route path="/requests" element={<RequestsPage />} />
-          <Route path="/autoscaling" element={<AutoScalingPage />} />
-          <Route path="/analytics" element={<AnalyticsPage />} />
-          <Route path="/events" element={<EventsPage />} />
-        </Routes>
-      </DashboardLayout>
-    </BrowserRouter>
+    <SimulationProvider>
+      <BrowserRouter>
+        <DashboardLayout>
+          <Routes>
+            <Route path="/" element={<DashboardPage />} />
+            <Route path="/topology" element={<TopologyPage />} />
+            <Route path="/servers" element={<ServersPage />} />
+            <Route path="/requests" element={<RequestsPage />} />
+            <Route path="/autoscaling" element={<AutoScalingPage />} />
+            <Route path="/analytics" element={<AnalyticsPage />} />
+            <Route path="/events" element={<EventsPage />} />
+          </Routes>
+        </DashboardLayout>
+      </BrowserRouter>
+    </SimulationProvider>
   );
 };
 

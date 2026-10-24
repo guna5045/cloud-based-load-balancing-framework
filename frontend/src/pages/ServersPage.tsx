@@ -1,41 +1,36 @@
-import React, { useMemo, useState, useCallback, useEffect } from 'react';
+/**
+ * ServersPage.tsx  (Phase 3 — uses simulation context)
+ */
+
+import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { StatusBadge } from '../components/StatusBadge';
 import { ServerDetailsPanel } from '../components/ServerDetailsPanel';
-import { apiService } from '../services/api';
-import { ServerNode } from '../types/server.types';
-import { buildMockTopology } from '../data/mockData';
+import { useSimulation } from '../context/SimulationContext';
+import { getHierarchyPath } from '../data/topologySimulation';
 import { Server } from 'lucide-react';
+import { ServerNode } from '../types/server.types';
 
 export const ServersPage: React.FC = () => {
-  const [liveServers, setLiveServers] = useState<ServerNode[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<string | null>(null);
-  const mockServers = useMemo(() => buildMockTopology(), []);
+  const sim = useSimulation();
+  const [localSelected, setLocalSelected] = useState<string | null>(null);
 
-  const fetchServers = useCallback(async () => {
-    try {
-      setLoading(true);
-      const res = await apiService.getTopology();
-      if (res.success && res.data?.servers?.length) setLiveServers(res.data.servers);
-    } catch { /* use mock */ }
-    finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => { fetchServers(); }, [fetchServers]);
-
-  const servers = liveServers.length > 0 ? liveServers : mockServers;
-
+  // Flatten all nodes for the grid
   const flat = useMemo(() => {
     const out: ServerNode[] = [];
     const walk = (nodes: ServerNode[]) => {
       for (const n of nodes) { out.push(n); walk(n.children); }
     };
-    walk(servers);
+    walk(sim.servers);
     return out;
-  }, [servers]);
+  }, [sim.servers]);
 
-  const selectedServer = flat.find((s) => s.id === selected) ?? null;
+  const selectedServer = flat.find((s) => s.id === localSelected) ?? null;
+
+  const hierarchyPath = useMemo(() => {
+    if (!localSelected) return [];
+    return getHierarchyPath(sim.servers, localSelected);
+  }, [localSelected, sim.servers]);
 
   return (
     <div className="flex flex-col gap-5 p-5 h-full overflow-y-auto">
@@ -49,79 +44,78 @@ export const ServersPage: React.FC = () => {
 
       <div className="flex gap-4">
         <div className="flex-1 min-w-0">
-          {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="card p-4 h-36 animate-pulse" />
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {flat.map((s, i) => (
-                <motion.button
-                  key={s.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.04 }}
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
-                  onClick={() => setSelected(s.id === selected ? null : s.id)}
-                  className={`card p-4 text-left space-y-3 transition-shadow ${
-                    s.id === selected ? 'ring-1 ring-blue-400 shadow-node-selected' : ''
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="font-mono font-bold text-slate-100">{s.id}</span>
-                      <span className="ml-2 text-[10px] text-slate-500 font-mono">
-                        {s.parentId ? `↑ ${s.parentId}` : 'root'}
-                      </span>
-                    </div>
-                    <StatusBadge status={s.status} pulse />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {flat.map((s, i) => (
+              <motion.button
+                key={s.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.04 }}
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.99 }}
+                onClick={() => setLocalSelected(s.id === localSelected ? null : s.id)}
+                className={`card p-4 text-left space-y-3 transition-shadow ${
+                  s.id === localSelected ? 'ring-1 ring-blue-400 shadow-node-selected' : ''
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="font-mono font-bold text-slate-100">{s.id}</span>
+                    <span className="ml-2 text-[10px] text-slate-500 font-mono">
+                      {s.parentId ? `↑ ${s.parentId}` : 'root'}
+                    </span>
                   </div>
+                  <StatusBadge status={s.status} pulse />
+                </div>
 
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-slate-500">Load</span>
-                      <span className="font-mono text-slate-300">{s.load}%</span>
-                    </div>
-                    <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{
-                          width: `${s.load}%`,
-                          backgroundColor: s.load >= 80 ? '#ef4444' : s.load >= 60 ? '#f59e0b' : '#22c55e',
-                        }}
-                      />
-                    </div>
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Load</span>
+                    <span className="font-mono text-slate-300">{s.load}%</span>
                   </div>
+                  <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${s.load}%`,
+                        backgroundColor: s.load >= 80 ? '#ef4444' : s.load >= 70 ? '#f59e0b' : '#22c55e',
+                      }}
+                    />
+                  </div>
+                </div>
 
-                  <div className="grid grid-cols-2 gap-2 text-[11px]">
-                    <div>
-                      <p className="text-slate-600">CPU</p>
-                      <p className="text-slate-300 font-mono">{s.metrics?.cpuUsagePercent ?? '—'}%</p>
-                    </div>
-                    <div>
-                      <p className="text-slate-600">Memory</p>
-                      <p className="text-slate-300 font-mono">{s.metrics?.memoryUsagePercent ?? '—'}%</p>
-                    </div>
-                    <div>
-                      <p className="text-slate-600">Latency</p>
-                      <p className="text-slate-300 font-mono">{s.metrics?.responseTimeMs ?? '—'} ms</p>
-                    </div>
-                    <div>
-                      <p className="text-slate-600">Children</p>
-                      <p className="text-slate-300 font-mono">{s.children.length}</p>
-                    </div>
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <div>
+                    <p className="text-slate-600">CPU</p>
+                    <p className="text-slate-300 font-mono">{s.metrics?.cpuUsagePercent ?? '—'}%</p>
                   </div>
-                </motion.button>
-              ))}
-            </div>
-          )}
+                  <div>
+                    <p className="text-slate-600">Memory</p>
+                    <p className="text-slate-300 font-mono">{s.metrics?.memoryUsagePercent ?? '—'}%</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-600">Latency</p>
+                    <p className="text-slate-300 font-mono">{s.metrics?.responseTimeMs ?? '—'} ms</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-600">Children</p>
+                    <p className="text-slate-300 font-mono">{s.children.length}</p>
+                  </div>
+                </div>
+              </motion.button>
+            ))}
+          </div>
         </div>
 
         {selectedServer && (
-          <ServerDetailsPanel server={selectedServer} onClose={() => setSelected(null)} />
+          <ServerDetailsPanel
+            server={selectedServer}
+            onClose={() => setLocalSelected(null)}
+            hierarchyPath={hierarchyPath}
+            onTriggerScaling={sim.triggerScaling}
+            canScale={sim.canScale(localSelected!)}
+            scalingInProgress={sim.scaling.step !== 'idle'}
+          />
         )}
       </div>
     </div>

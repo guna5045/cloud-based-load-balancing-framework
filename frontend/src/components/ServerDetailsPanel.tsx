@@ -1,24 +1,29 @@
+/**
+ * ServerDetailsPanel.tsx  (Phase 3 — updated)
+ *
+ * Slide-in server inspector panel.
+ * Adds: hierarchy path breadcrumb, "Simulate Overload / Trigger Scaling" button.
+ */
+
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  ServerNode,
-  ServerMetrics,
-} from '../types/server.types';
+import { ServerNode, ServerMetrics } from '../types/server.types';
 import { StatusBadge } from './StatusBadge';
 import {
-  X,
-  Cpu,
-  HardDrive,
-  Activity,
-  Zap,
-  GitBranch,
-  Clock,
-  Users,
+  X, Cpu, HardDrive, Activity, Zap, GitBranch, Clock, Users, ChevronRight,
 } from 'lucide-react';
 
 interface ServerDetailsPanelProps {
   server: ServerNode | null;
   onClose: () => void;
+  /** Full hierarchy path from root, e.g. ['S1', 'S1.2', 'S1.2.1'] */
+  hierarchyPath?: string[];
+  /** Callback for the "Simulate Overload" button */
+  onTriggerScaling?: (serverId: string) => void;
+  /** Whether the selected server can currently be scaled */
+  canScale?: boolean;
+  /** Whether a scaling sequence is in progress */
+  scalingInProgress?: boolean;
 }
 
 const StatRow: React.FC<{
@@ -34,7 +39,7 @@ const StatRow: React.FC<{
         <span className="text-slate-500">{icon}</span>
         <span className="text-xs">{label}</span>
       </div>
-      <span className="text-xs font-semibold text-slate-200 tabular-nums">{value}</span>
+      <span className="text-xs font-semibold text-slate-200 tabular-nums font-mono">{value}</span>
     </div>
     {bar !== undefined && (
       <div className="h-1.5 w-full rounded-full bg-slate-800 overflow-hidden">
@@ -52,11 +57,18 @@ const StatRow: React.FC<{
 
 function loadBarColor(val: number): string {
   if (val >= 80) return '#ef4444';
-  if (val >= 60) return '#f59e0b';
+  if (val >= 70) return '#f59e0b';
   return '#22c55e';
 }
 
-export const ServerDetailsPanel: React.FC<ServerDetailsPanelProps> = ({ server, onClose }) => {
+export const ServerDetailsPanel: React.FC<ServerDetailsPanelProps> = ({
+  server,
+  onClose,
+  hierarchyPath = [],
+  onTriggerScaling,
+  canScale = false,
+  scalingInProgress = false,
+}) => {
   const m: ServerMetrics | undefined = server?.metrics;
 
   return (
@@ -68,8 +80,8 @@ export const ServerDetailsPanel: React.FC<ServerDetailsPanelProps> = ({ server, 
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 24 }}
           transition={{ duration: 0.22, ease: 'easeOut' }}
-          className="card flex flex-col overflow-hidden"
-          style={{ minWidth: 260, maxWidth: 280 }}
+          className="card flex flex-col overflow-hidden shrink-0"
+          style={{ width: 272 }}
         >
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800/80 shrink-0">
@@ -87,16 +99,41 @@ export const ServerDetailsPanel: React.FC<ServerDetailsPanelProps> = ({ server, 
 
           {/* Body */}
           <div className="flex-1 overflow-y-auto p-4 space-y-5">
+
             {/* Status */}
             <div className="flex items-center justify-between">
               <span className="text-xs text-slate-400">Status</span>
               <StatusBadge status={server.status} pulse />
             </div>
 
+            {/* Hierarchy path breadcrumb */}
+            {hierarchyPath.length > 0 && (
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-1.5">
+                  Hierarchy Path
+                </p>
+                <div className="flex flex-wrap items-center gap-0.5">
+                  <span className="text-[10px] font-mono text-blue-400">LB</span>
+                  {hierarchyPath.map((id) => (
+                    <React.Fragment key={id}>
+                      <ChevronRight className="w-3 h-3 text-slate-700 shrink-0" />
+                      <span
+                        className={`text-[10px] font-mono ${
+                          id === server.id ? 'text-slate-100 font-bold' : 'text-slate-400'
+                        }`}
+                      >
+                        {id}
+                      </span>
+                    </React.Fragment>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Hierarchy */}
             <div className="space-y-2">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-                Hierarchy
+                Connections
               </p>
               <div className="space-y-1">
                 <div className="flex items-center justify-between text-xs">
@@ -129,7 +166,6 @@ export const ServerDetailsPanel: React.FC<ServerDetailsPanelProps> = ({ server, 
               <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
                 Performance
               </p>
-
               <StatRow
                 icon={<Activity className="w-3.5 h-3.5" />}
                 label="Current Load"
@@ -165,12 +201,12 @@ export const ServerDetailsPanel: React.FC<ServerDetailsPanelProps> = ({ server, 
               </p>
               <StatRow
                 icon={<Users className="w-3.5 h-3.5" />}
-                label="Active Connections"
+                label="Connections"
                 value={(m?.activeConnections ?? 0).toLocaleString()}
               />
               <StatRow
                 icon={<Zap className="w-3.5 h-3.5" />}
-                label="Total Requests"
+                label="Requests Served"
                 value={(m?.totalRequestsHandled ?? 0).toLocaleString()}
               />
               <StatRow
@@ -180,9 +216,41 @@ export const ServerDetailsPanel: React.FC<ServerDetailsPanelProps> = ({ server, 
               />
             </div>
 
-            {/* Timestamps */}
+            {/* Simulate Scaling button */}
+            {onTriggerScaling && (
+              <div className="pt-1 border-t border-slate-800/80 space-y-2">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+                  Simulation
+                </p>
+                {server.children.length > 0 ? (
+                  <p className="text-[10px] text-slate-600 italic">
+                    Already scaled — has {server.children.length} child{server.children.length !== 1 ? 'ren' : ''}
+                  </p>
+                ) : (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => canScale && onTriggerScaling(server.id)}
+                    disabled={!canScale || scalingInProgress}
+                    className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                      canScale && !scalingInProgress
+                        ? 'bg-violet-600/20 text-violet-300 border border-violet-600/30 hover:bg-violet-600/30'
+                        : 'bg-slate-800/50 text-slate-600 border border-slate-800 cursor-not-allowed'
+                    }`}
+                  >
+                    <Zap className="w-3.5 h-3.5" />
+                    {scalingInProgress ? 'Scaling in progress…' : 'Simulate Overload → Scale'}
+                  </motion.button>
+                )}
+                <p className="text-[9px] text-slate-700 leading-relaxed">
+                  [SIM] Sets load ≥80%, triggers scaling sequence, spawns {server.id}.1/.2/.3
+                </p>
+              </div>
+            )}
+
+            {/* Timestamp */}
             <div className="pt-1 border-t border-slate-800">
-              <p className="text-[10px] text-slate-600 mt-2">
+              <p className="text-[10px] text-slate-700 mt-1">
                 Created {new Date(server.createdAt).toLocaleTimeString()}
               </p>
             </div>
