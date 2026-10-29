@@ -400,7 +400,9 @@ async function runPhase6Tests(): Promise<void> {
       `Status: ${overloadInspect.status}, Utilization: ${overloadInspect.utilization}%`
     );
 
-    // Restore S1 to healthy
+    // Restore S1 to healthy and clean up any dynamic children spawned by the overload event
+    await scalingService.terminateAll();
+    serverRegistry.reset();
     await monitoringService.inspectServer(s1Node);
     await monitoringService.inspectServer(s1Node);
 

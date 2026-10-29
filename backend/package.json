@@ -6,7 +6,7 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "prebuild": "npm install --prefix ../servers",
+    "prebuild": "npm install --include=dev && npm install --prefix ../servers --include=dev",
     "build": "tsc && npm run build --prefix ../servers",
     "test": "tsx tests/roundRobin.test.ts",
     "test:phase5": "tsx tests/phase5.test.ts",
