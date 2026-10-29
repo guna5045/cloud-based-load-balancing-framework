@@ -98,6 +98,19 @@ export class MonitoringStateEvaluator {
     let overloadTransition = false;
     let recoveryTransition = false;
 
+    // Scaled parent servers remain in 'scaled' state (scale-down is not supported)
+    if (prevStatus === 'scaled' || currentKnownStatus === 'scaled') {
+      tracker.status = 'scaled';
+      return {
+        previousStatus: 'scaled',
+        newStatus: 'scaled',
+        statusChanged: false,
+        overloadTransition: false,
+        recoveryTransition: false,
+        utilization,
+      };
+    }
+
     // If server was offline and is now being evaluated with valid utilization, it has recovered
     if (prevStatus === 'offline') {
       nextStatus =

@@ -13,10 +13,12 @@
     "servers": "concurrently -n \"S1,S2,S3\" -c \"blue,magenta,cyan\" \"npm run server:s1\" \"npm run server:s2\" \"npm run server:s3\"",
     "dev:all": "concurrently -n \"LB,UI,S1,S2,S3\" -c \"blue,green,cyan,magenta,yellow\" \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run server:s1\" \"npm run server:s2\" \"npm run server:s3\"",
     "build": "npm run build --prefix backend && npm run build --prefix frontend && npm run build --prefix servers",
+    "start": "node backend/dist/server.js",
     "install:all": "npm install && npm install --prefix backend && npm install --prefix frontend && npm install --prefix servers"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
+    "puppeteer-core": "^25.16.0",
     "tsx": "^4.23.15"
   },
   "author": "",

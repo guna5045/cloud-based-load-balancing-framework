@@ -19,13 +19,31 @@ class ServerRegistry {
   }
 
   /**
-   * Returns all active/healthy servers eligible to receive traffic.
-   * Filters out offline or maintenance nodes.
+   * Returns all active leaf servers eligible to receive traffic.
+   * Only leaf nodes (zero children) that are not offline and not scaling
+   * participate in the active routing pool.
    */
   public getActiveServers(): ServerNode[] {
-    const allServers = serverTopology.getAllServers();
-    return allServers.filter((server) => server.status !== 'offline');
+    const leafServers = serverTopology.getLeafServers();
+    return leafServers.filter(
+      (server) => server.status !== 'offline' && server.status !== 'scaling'
+    );
   }
+
+  /**
+   * Returns all leaf servers in the topology.
+   */
+  public getLeafServers(): ServerNode[] {
+    return serverTopology.getLeafServers();
+  }
+
+  /**
+   * Returns all scaled parent servers in the topology.
+   */
+  public getScaledServers(): ServerNode[] {
+    return serverTopology.getScaledServers();
+  }
+
 
   /**
    * Retrieves a specific server by ID.
@@ -73,6 +91,19 @@ class ServerRegistry {
     server.status = 'offline';
     logger.info(`[ServerRegistry] Marked server instance '${id}' as offline`);
     return true;
+  }
+
+  /**
+   * Completely removes a server instance from the topology and clears its telemetry state.
+   */
+  public removeServer(id: string): boolean {
+    const server = this.getServer(id);
+    if (!server) return false;
+    server.status = 'offline';
+    const removed = serverTopology.removeServer(id);
+    this.rpsTrackers.delete(id);
+    logger.info(`[ServerRegistry] Completely removed server instance '${id}' from topology`);
+    return removed;
   }
 
   /**

@@ -22,7 +22,31 @@ export const submitRequest = async (
   try {
     const payload = req.body;
 
-    logger.info(`[RequestController] Received POST /api/requests with payload: ${JSON.stringify(payload)}`);
+    // Validate payload structure
+    if (payload !== undefined && payload !== null && (typeof payload !== 'object' || Array.isArray(payload))) {
+      res.status(400).json({
+        success: false,
+        error: 'Invalid request payload: payload must be a JSON object or omitted',
+        code: 'BAD_REQUEST',
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    let serializedPayload = '{}';
+    try {
+      serializedPayload = JSON.stringify(payload ?? {});
+    } catch {
+      res.status(400).json({
+        success: false,
+        error: 'Invalid request payload: circular reference or unparseable object',
+        code: 'BAD_REQUEST',
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    logger.info(`[RequestController] Received POST /api/requests with payload: ${serializedPayload}`);
 
     const result = await loadBalancerService.handleRequest(payload);
 

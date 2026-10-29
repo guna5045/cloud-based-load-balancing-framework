@@ -9,8 +9,9 @@ export const getSocket = (): Socket => {
       transports: ['websocket', 'polling'],
       autoConnect: true,
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
     });
   } else if (!socket.connected) {
     socket.connect();

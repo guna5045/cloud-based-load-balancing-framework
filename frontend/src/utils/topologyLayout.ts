@@ -1,11 +1,14 @@
 /**
- * topologyLayout.ts  (Phase 3 — improved)
+ * topologyLayout.ts
  *
  * Converts the recursive ServerNode tree into a flat list of React Flow
  * nodes and edges using a proper Reingold–Tilford-style horizontal layout.
  *
- * Works for arbitrary depth trees. Keeps sibling subtrees balanced.
- * Supports active path highlighting, scaling state, and hover-tooltip data.
+ * Features:
+ * - Deterministic, non-overlapping hierarchical positioning for arbitrary depths
+ * - Explicit node bounding dimensions ensuring immediate, robust React Flow layout
+ * - Wires up custom InfrastructureEdge with rich traffic state metadata
+ * - Permanent connection visibility (zero opacity drop on inactive edges)
  */
 
 import { ServerNode } from '../types/server.types';
@@ -14,15 +17,22 @@ import { ScalingState } from '../hooks/useTopologySimulation';
 
 // ─── Layout constants ─────────────────────────────────────────────────────────
 
-const H_GAP   = 52;   // horizontal gap between sibling subtrees
-const V_GAP   = 108;  // vertical gap between tree levels
-const LB_Y    = 0;
-const NODE_W  = 152;  // node width (all depths — we scale the card inside)
+export const H_GAP = 64;   // horizontal gap between sibling subtrees
+export const V_GAP = 120;  // vertical gap between tree levels
+export const LB_Y = 0;
+export const NODE_W = 160; // matches rendered node card width
+export const NODE_H_LEAF = 90;
+export const NODE_H_SCALED = 98;
+
+// ─── LB node dimensions (for centering) ──────────────────────────────────────
+
+export const LB_W = 176;
+export const LB_H = 78;
 
 // ─── Recursive width calculator ───────────────────────────────────────────────
 
-function subtreeWidth(node: ServerNode): number {
-  if (node.children.length === 0) return NODE_W;
+export function subtreeWidth(node: ServerNode): number {
+  if (!node.children || node.children.length === 0) return NODE_W;
   const childWidths = node.children.map(subtreeWidth);
   const totalChildren = childWidths.reduce((a, b) => a + b, 0);
   const gaps = (node.children.length - 1) * H_GAP;
@@ -44,13 +54,16 @@ function buildSubtree(
 ): void {
   const isSelected = node.id === selected;
   const isOnActivePath = activePath.has(node.id);
-  const isScaling =
-    scaling.serverId === node.id && scaling.step !== 'idle';
+  const isScaling = scaling.serverId === node.id && scaling.step !== 'idle';
+  const isScaledParent = (node.children && node.children.length > 0) || node.status === 'scaled';
+  const nodeH = isScaledParent ? NODE_H_SCALED : NODE_H_LEAF;
 
   nodes.push({
     id: node.id,
     type: 'serverNode',
-    position: { x: cx - NODE_W / 2, y: cy },
+    position: { x: Math.round(cx - NODE_W / 2), y: Math.round(cy) },
+    width: NODE_W,
+    height: nodeH,
     data: {
       server: node,
       isSelected,
@@ -61,9 +74,8 @@ function buildSubtree(
     },
   });
 
-  if (node.children.length === 0) return;
+  if (!node.children || node.children.length === 0) return;
 
-  // Compute total width of all children
   const childWidths = node.children.map(subtreeWidth);
   const totalW =
     childWidths.reduce((a, b) => a + b, 0) +
@@ -76,19 +88,21 @@ function buildSubtree(
     const cw = childWidths[i];
     const childCx = startX + cw / 2;
 
-    const isActiveEdge =
-      activePath.has(node.id) && activePath.has(child.id);
+    const isActiveEdge = activePath.has(node.id) && activePath.has(child.id);
+    const isScalingEdge = scaling.serverId === node.id && scaling.step === 'spawning';
 
     edges.push({
       id: `e-${node.id}-${child.id}`,
       source: node.id,
+      sourceHandle: 'source',
       target: child.id,
-      type: 'smoothstep',
-      animated: isActiveEdge,
-      style: {
-        stroke: isActiveEdge ? '#3b82f6' : '#1e293b',
-        strokeWidth: isActiveEdge ? 2.5 : 1.5,
-        opacity: activePath.size > 0 && !isActiveEdge ? 0.35 : 1,
+      targetHandle: 'target',
+      type: 'infraEdge',
+      data: {
+        isActive: isActiveEdge,
+        isScaling: isScalingEdge,
+        targetStatus: child.status,
+        sourceType: 'server',
       },
     });
 
@@ -119,52 +133,69 @@ export function buildFlowGraph({
   const edges: Edge[] = [];
   const activePathSet = new Set(activePath);
 
-  // ── Load Balancer synthetic root ───────────────────────────────────────────
+  if (!servers || servers.length === 0) {
+    // No root servers: LB centered at origin
+    nodes.push({
+      id: '__lb__',
+      type: 'lbNode',
+      position: { x: Math.round(-LB_W / 2), y: LB_Y },
+      width: LB_W,
+      height: LB_H,
+      data: { isOnActivePath: activePathSet.has('__lb__') },
+      draggable: false,
+    });
+    return { nodes, edges };
+  }
+
+  // ── Compute total width of all root server subtrees ────────────────────────
+  const rootWidths = servers.map(subtreeWidth);
+  const totalRootW =
+    rootWidths.reduce((a, b) => a + b, 0) + (servers.length - 1) * H_GAP;
+
+  // LB is centered over the entire root row
+  const lbCx = 0; // world center
+  const lbX = lbCx - LB_W / 2;
 
   nodes.push({
     id: '__lb__',
     type: 'lbNode',
-    position: { x: -76, y: LB_Y },
-    data: {
-      isOnActivePath: activePath.includes('__lb__'),
-    },
+    position: { x: Math.round(lbX), y: LB_Y },
+    width: LB_W,
+    height: LB_H,
+    data: { isOnActivePath: activePathSet.has('__lb__') },
     draggable: false,
   });
 
-  if (servers.length === 0) return { nodes, edges };
-
   // ── Layout root servers ────────────────────────────────────────────────────
-
-  const rootWidths = servers.map(subtreeWidth);
-  const totalRootW =
-    rootWidths.reduce((a, b) => a + b, 0) + (servers.length - 1) * H_GAP;
-  let startX = -totalRootW / 2;
+  let startX = lbCx - totalRootW / 2;
 
   for (let i = 0; i < servers.length; i++) {
     const server = servers[i];
     const rw = rootWidths[i];
     const rootCx = startX + rw / 2;
 
-    const isActiveEdge =
-      activePathSet.has('__lb__') && activePathSet.has(server.id);
+    const isActiveEdge = activePathSet.has('__lb__') && activePathSet.has(server.id);
+    const isScalingEdge = scaling.serverId === server.id && scaling.step === 'spawning';
 
     edges.push({
       id: `e-lb-${server.id}`,
       source: '__lb__',
+      sourceHandle: 'source',
       target: server.id,
-      type: 'smoothstep',
-      animated: isActiveEdge,
-      style: {
-        stroke: isActiveEdge ? '#3b82f6' : '#1d4ed8',
-        strokeWidth: isActiveEdge ? 2.5 : 2,
-        opacity: activePath.length > 0 && !isActiveEdge ? 0.3 : 1,
+      targetHandle: 'target',
+      type: 'infraEdge',
+      data: {
+        isActive: isActiveEdge,
+        isScaling: isScalingEdge,
+        targetStatus: server.status,
+        sourceType: 'lb',
       },
     });
 
     buildSubtree(
       server,
       rootCx,
-      LB_Y + V_GAP,
+      LB_Y + V_GAP + LB_H,   // start below LB node bottom
       onSelect,
       selected,
       activePathSet,

@@ -41,6 +41,7 @@ export interface RoutingMetrics {
   lastRoutedServer: string | null;
   activeServersCount: number;
   lastRequestAt: string | null;
+  nextServerId?: string | null;
 }
 
 export interface RoutedSocketEvent {
@@ -50,4 +51,5 @@ export interface RoutedSocketEvent {
   sequence: number;
   processingTime: number;
   timestamp: string;
+  nextServerId?: string | null;
 }

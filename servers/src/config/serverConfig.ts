@@ -43,7 +43,6 @@ const portStr =
   parseArg('--port') ||
   positionalPort ||
   process.env.SERVER_PORT ||
-  process.env.PORT ||
   String(defaultPortMap[serverId] || 3001);
 
 const port = parseInt(portStr, 10);

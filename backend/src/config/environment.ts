@@ -10,12 +10,18 @@ const serverPorts: Record<string, number> = {
   S3: parseInt(process.env.SERVER_S3_PORT || '3003', 10),
 };
 
+const configuredOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173')
+  .split(',')
+  .map((url) => url.trim().replace(/\/+$/, ''))
+  .filter(Boolean);
+
 export const config = {
   port: parseInt(process.env.PORT || '5000', 10),
+  host: process.env.HOST || '0.0.0.0',
   nodeEnv: process.env.NODE_ENV || 'development',
-  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
+  frontendUrl: configuredOrigins[0] || 'http://localhost:5173',
   allowedOrigins: [
-    process.env.FRONTEND_URL || 'http://localhost:5173',
+    ...configuredOrigins,
     'http://localhost:5173',
     'http://localhost:5174',
     'http://localhost:5175',
@@ -39,6 +45,11 @@ export const config = {
   recoveryConfirmationSamples: parseInt(process.env.RECOVERY_CONFIRMATION_SAMPLES || '2', 10),
   maxLoadThreshold: parseInt(process.env.MAX_LOAD_THRESHOLD || '80', 10),
   expansionFactor: parseInt(process.env.EXPANSION_FACTOR || '3', 10),
+  childServerPortStart: parseInt(process.env.CHILD_SERVER_PORT_START || '3100', 10),
+  childServerPortEnd: parseInt(process.env.CHILD_SERVER_PORT_END || '3999', 10),
+  childStartupTimeoutMs: parseInt(process.env.CHILD_STARTUP_TIMEOUT_MS || '5000', 10),
+  maxScalingDepth: parseInt(process.env.MAX_SCALING_DEPTH || '10', 10),
+  maxServerProcesses: parseInt(process.env.MAX_SERVER_PROCESSES || '50', 10),
 };
 
 export const getServerBaseUrl = (serverId: string): string => {
@@ -48,8 +59,10 @@ export const getServerBaseUrl = (serverId: string): string => {
 
 export const isOriginAllowed = (origin?: string): boolean => {
   if (!origin) return true;
-  if (config.allowedOrigins.includes(origin)) return true;
-  if (/^http:\/\/localhost:\d+$/.test(origin)) return true;
-  if (/^http:\/\/127\.0\.0\.1:\d+$/.test(origin)) return true;
+  const cleanOrigin = origin.replace(/\/+$/, '');
+  if (config.allowedOrigins.some((allowed) => allowed === cleanOrigin)) return true;
+  if (/^http:\/\/localhost:\d+$/.test(cleanOrigin)) return true;
+  if (/^http:\/\/127\.0\.0\.1:\d+$/.test(cleanOrigin)) return true;
+  if (/^https:\/\/.*\.onrender\.com$/.test(cleanOrigin)) return true;
   return false;
 };

@@ -41,6 +41,20 @@ const STATUS_CONFIG: Record<
     label: 'Offline',
     dotColor: 'bg-slate-500',
   },
+  scaling: {
+    color: 'text-blue-400',
+    bg: 'bg-blue-500/10',
+    border: 'border-blue-500/30',
+    label: 'Scaling…',
+    dotColor: 'bg-blue-400',
+  },
+  scaled: {
+    color: 'text-indigo-300',
+    bg: 'bg-indigo-500/10',
+    border: 'border-indigo-500/30',
+    label: 'Scaled Parent',
+    dotColor: 'bg-indigo-400',
+  },
 };
 
 export const StatusBadge: React.FC<StatusBadgeProps> = ({

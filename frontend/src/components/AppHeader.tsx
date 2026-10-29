@@ -36,11 +36,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium ${
-            isOperational
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium ${isOperational
               ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25'
               : 'bg-rose-500/10 text-rose-400 border-rose-500/25'
-          }`}
+            }`}
         >
           {isOperational ? (
             <CheckCircle2 className="w-3 h-3" />
@@ -53,15 +52,15 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         {/* Socket status */}
         <div
           className="flex items-center gap-1.5 text-xs"
-          title={socket.isConnected ? `Socket ID: ${socket.socketId}` : 'Not connected'}
+          title={socket.isConnected ? `Socket ID: ${socket.socketId}` : 'Not connected — attempting auto-reconnect'}
         >
           {socket.isConnected ? (
             <Wifi className="w-3.5 h-3.5 text-emerald-400" />
           ) : (
-            <WifiOff className="w-3.5 h-3.5 text-rose-400" />
+            <WifiOff className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
           )}
-          <span className={socket.isConnected ? 'text-slate-400' : 'text-rose-400'}>
-            {socket.isConnected ? 'Real-time' : 'Offline'}
+          <span className={socket.isConnected ? 'text-slate-400' : 'text-amber-400 font-medium'}>
+            {socket.isConnected ? 'Real-time' : 'Reconnecting...'}
           </span>
         </div>
 
@@ -75,9 +74,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
         </button>
 
-        {/* Phase badge */}
-        <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-blue-600/20 text-blue-300 border border-blue-600/30">
-          Phase 2
+        {/* System status badge */}
+        <span className="px-2.5 py-0.5 text-[10px] font-semibold rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-mono">
+          Cloud Load Balancer
         </span>
       </div>
     </header>

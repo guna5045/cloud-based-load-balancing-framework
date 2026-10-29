@@ -175,7 +175,7 @@ export const RealRoutingControls: React.FC<RealRoutingControlsProps> = ({ routin
 
             return (
               <motion.div
-                key={req.requestId}
+                key={`${req.requestId}-${idx}`}
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 className={`flex items-center gap-1 px-2 py-0.5 rounded border text-[11px] font-mono shrink-0 ${serverColor} ${

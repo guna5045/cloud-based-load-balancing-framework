@@ -115,3 +115,12 @@
 .recharts-tooltip-wrapper {
   outline: none !important;
 }
+
+/* ─── Reduced Motion Support ────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .edge-animated,
+  .particle,
+  .pulse-ring {
+    animation: none !important;
+  }
+}

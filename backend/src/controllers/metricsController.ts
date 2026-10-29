@@ -8,6 +8,7 @@ import { serverTopology } from '../models/serverTopology';
 import { loadBalancerService } from '../services/loadBalancerService';
 import { monitoringService } from '../services/monitoringService';
 import { serverRegistry } from '../services/serverRegistry';
+import { scalingService } from '../services/scalingService';
 
 export const getMetrics = (_req: Request, res: Response): void => {
   const summary = serverTopology.getSummary();
@@ -34,12 +35,21 @@ export const getMetrics = (_req: Request, res: Response): void => {
     };
   }
 
+  const scalingOps = scalingService.getTotalOperations();
+
   res.status(200).json({
     success: true,
     data: {
       timestamp: new Date().toISOString(),
       uptimeSeconds: Math.floor(process.uptime()),
       totalRequests: routingMetrics.totalRequests,
+      // Scaling metrics
+      totalServers: summary.totalServers,
+      activeLeafServers: summary.activeLeafServers,
+      rootServers: summary.rootServers,
+      scaledServers: summary.scaledServers,
+      scalingOperations: scalingOps,
+      maxTopologyDepth: summary.maxDepth,
       healthyServers: clusterSummary.healthyServers,
       warningServers: clusterSummary.warningServers,
       overloadedServers: clusterSummary.overloadedServers,
@@ -54,11 +64,36 @@ export const getMetrics = (_req: Request, res: Response): void => {
       topology: {
         totalServers: summary.totalServers,
         activeServers: summary.activeServers,
+        activeLeafServers: summary.activeLeafServers,
+        rootServers: summary.rootServers,
+        scaledServers: summary.scaledServers,
         maxDepth: summary.maxDepth,
+        maxTopologyDepth: summary.maxDepth,
+        scalingOperations: scalingOps,
         averageLoadPercent: summary.averageLoad,
+      },
+      scaling: {
+        totalServers: summary.totalServers,
+        activeLeafServers: summary.activeLeafServers,
+        rootServers: summary.rootServers,
+        scaledServers: summary.scaledServers,
+        scalingOperations: scalingOps,
+        maxTopologyDepth: summary.maxDepth,
       },
       routing: routingMetrics,
     },
+  });
+};
+
+export const getScalingHistory = (req: Request, res: Response): void => {
+  const limitQuery = req.query.limit;
+  const limit = typeof limitQuery === 'string' ? parseInt(limitQuery, 10) : 50;
+  const history = scalingService.getHistory(limit);
+
+  res.status(200).json({
+    success: true,
+    count: history.length,
+    data: history,
   });
 };
 

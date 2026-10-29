@@ -36,6 +36,7 @@ import { serverTopology } from '../src/models/serverTopology';
 import { utilizationService } from '../src/services/utilizationService';
 import { MonitoringStateEvaluator } from '../src/services/monitoringStateEvaluator';
 import { monitoringService } from '../src/services/monitoringService';
+import { scalingService } from '../src/services/scalingService';
 import { serverClient } from '../src/services/serverClient';
 
 interface TestResult {
@@ -460,6 +461,7 @@ async function runPhase6Tests(): Promise<void> {
 
   } finally {
     console.log('\nTearing down Phase 6 test environment...');
+    await scalingService.terminateAll();
     await stopServerProcess(s1Proc, 3001);
     await stopServerProcess(s2Proc, 3002);
     await stopServerProcess(s3Proc, 3003);

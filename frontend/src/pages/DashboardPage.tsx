@@ -1,6 +1,5 @@
 /**
  * DashboardPage.tsx
- * Phase 4: Real Round Robin Load Balancer & Request Routing
  *
  * Main dashboard for the Cloud-Based Load Balancing Framework.
  * Integrates live backend Round Robin telemetry, dynamic request distribution,
@@ -9,7 +8,7 @@
 
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Activity, Server, Clock, Cpu, Zap, Send, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { Activity, Server, Clock, Cpu, Zap, Send, RefreshCw, CheckCircle2, AlertCircle, WifiOff } from 'lucide-react';
 import { MetricCard } from '../components/MetricCard';
 import { TopologyGraph } from '../components/TopologyGraph';
 import { ServerDetailsPanel } from '../components/ServerDetailsPanel';
@@ -25,11 +24,14 @@ export const DashboardPage: React.FC = () => {
   const sim = useSimulation();
   const real = useRealRouting();
 
-  // Active particle path for edge highlighting
+  // Active particle path for edge highlighting across all traveling particles
   const activePath = useMemo(() => {
     if (sim.particles.length === 0) return [];
-    const latest = sim.particles[sim.particles.length - 1];
-    return latest?.path ?? [];
+    const set = new Set<string>();
+    sim.particles.forEach((p) => {
+      p.path.forEach((id) => set.add(id));
+    });
+    return Array.from(set);
   }, [sim.particles]);
 
   // Hierarchy path for selected server
@@ -101,20 +103,70 @@ export const DashboardPage: React.FC = () => {
   }, [real.metrics, sim.servers]);
 
   return (
-    <div className="flex flex-col gap-5 p-5 h-full overflow-y-auto">
-      {/* Real Request Quick Dispatcher Strip */}
+    <div className="flex flex-col gap-4 p-5 h-full overflow-y-auto">
+      {/* ── Reliability Warning Banners ─────────────────────────────────────── */}
+      {!real.socketConnected && (
+        <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-medium">
+          <WifiOff className="w-4 h-4 text-amber-400 shrink-0 animate-pulse" />
+          <span><strong>Connection Lost:</strong> Disconnected from load balancer WebSocket. Real-time updates paused; auto-reconnecting...</span>
+        </div>
+      )}
+
+      {real.scalingKPIs.activeLeafServers === 0 && (
+        <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-medium">
+          <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+          <span><strong>No healthy servers available:</strong> All server instances in the cluster are offline. Routing is paused until instances recover.</span>
+        </div>
+      )}
+
+      {/* ── Control Bar ─────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-slate-900/90 border border-slate-800">
-        <div className="flex items-center gap-2">
-          <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">
-            Phase 4 Round Robin
-          </span>
-          <span className="text-xs text-slate-300 font-medium">Real Backend Dispatcher</span>
-          <span className="hidden sm:inline text-xs text-slate-500">•</span>
-          <span className="hidden sm:inline text-xs text-slate-400 font-mono">
-            Next: <strong className="text-emerald-400">{real.nextExpectedServer}</strong>
-          </span>
+        {/* Left: cluster status summary */}
+        <div className="flex flex-wrap items-center gap-3 text-xs font-mono">
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-500 uppercase tracking-widest text-[10px] font-semibold">Round Robin</span>
+            <span className="text-slate-600">·</span>
+            <span className="text-slate-400">Next:</span>
+            <strong className="text-emerald-400">{real.nextExpectedServer}</strong>
+          </div>
+          <span className="hidden sm:inline text-slate-700">|</span>
+          <div className="hidden sm:flex items-center gap-3">
+            <span className="flex items-center gap-1 text-emerald-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              <span>{real.clusterSummary.healthyServers} healthy</span>
+            </span>
+            {real.clusterSummary.warningServers > 0 && (
+              <span className="flex items-center gap-1 text-amber-400">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                <span>{real.clusterSummary.warningServers} warning</span>
+              </span>
+            )}
+            {real.clusterSummary.overloadedServers > 0 && (
+              <span className="flex items-center gap-1 text-rose-400">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                <span>{real.clusterSummary.overloadedServers} overloaded</span>
+              </span>
+            )}
+            <span className="text-slate-600">·</span>
+            <span className="text-slate-400">
+              Avg load: <strong className="text-blue-400">{real.clusterSummary.averageUtilization}%</strong>
+            </span>
+            <span className="text-slate-600">·</span>
+            <span className="text-indigo-300">
+              Leaves: <strong className="text-indigo-200">{real.scalingKPIs.activeLeafServers}</strong>
+            </span>
+            {real.scalingKPIs.scaledServers > 0 && (
+              <>
+                <span className="text-slate-600">·</span>
+                <span className="text-blue-300">
+                  Scaled: <strong className="text-blue-200">{real.scalingKPIs.scaledServers}</strong>
+                </span>
+              </>
+            )}
+          </div>
         </div>
 
+        {/* Right: action buttons */}
         <div className="flex items-center gap-2">
           {real.lastResult && (
             <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-950 border border-slate-800 text-[11px] font-mono text-slate-300">
@@ -134,7 +186,7 @@ export const DashboardPage: React.FC = () => {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-medium text-xs shadow-sm transition-colors"
           >
             <Send className={`w-3.5 h-3.5 ${real.isSending ? 'animate-spin' : ''}`} />
-            <span>Send Real Request</span>
+            <span>Send Request</span>
           </motion.button>
 
           <motion.button
@@ -145,7 +197,7 @@ export const DashboardPage: React.FC = () => {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/30 text-indigo-200 text-xs font-medium transition-colors"
           >
             <Zap className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Burst (5x)</span>
+            <span>Burst ×5</span>
           </motion.button>
 
           <button
@@ -158,42 +210,7 @@ export const DashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Cluster Monitoring Status Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-3.5 py-2 rounded-xl bg-slate-900/70 border border-slate-800 text-xs font-mono">
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="text-slate-400 font-semibold uppercase tracking-wider text-[10px]">
-            Phase 6 Cluster Monitor
-          </span>
-          <span className="flex items-center gap-1.5 text-emerald-400">
-            <span className="w-2 h-2 rounded-full bg-emerald-400" />
-            {real.clusterSummary.healthyServers} Healthy
-          </span>
-          <span className="flex items-center gap-1.5 text-amber-400">
-            <span className="w-2 h-2 rounded-full bg-amber-400" />
-            {real.clusterSummary.warningServers} Warning
-          </span>
-          <span className="flex items-center gap-1.5 text-rose-400">
-            <span className="w-2 h-2 rounded-full bg-rose-400" />
-            {real.clusterSummary.overloadedServers} Overloaded
-          </span>
-          <span className="flex items-center gap-1.5 text-slate-500">
-            <span className="w-2 h-2 rounded-full bg-slate-500" />
-            {real.clusterSummary.offlineServers} Offline
-          </span>
-        </div>
-        <div className="flex items-center gap-3 text-slate-400 text-[11px]">
-          <span>
-            Avg Cluster Utilization:{' '}
-            <strong className="text-blue-400">{real.clusterSummary.averageUtilization}%</strong>
-          </span>
-          <span className="text-slate-600">|</span>
-          <span>
-            Overload Threshold: <strong className="text-rose-400">80%</strong>
-          </span>
-        </div>
-      </div>
-
-      {/* KPI row — using real backend routing metrics when available */}
+      {/* ── KPI Row ─────────────────────────────────────────────────────────── */}
       <motion.div
         initial="hidden"
         animate="visible"
@@ -248,7 +265,7 @@ export const DashboardPage: React.FC = () => {
         />
       </motion.div>
 
-      {/* Topology + Details */}
+      {/* ── Topology + Details ───────────────────────────────────────────────── */}
       <div className="flex gap-4">
         <div className="flex-1 min-w-0">
           <TopologyGraph
@@ -258,7 +275,7 @@ export const DashboardPage: React.FC = () => {
             activePath={activePath}
             scaling={sim.scaling}
             particles={sim.particles}
-            height={440}
+            height={460}
           />
         </div>
 
@@ -274,7 +291,7 @@ export const DashboardPage: React.FC = () => {
         )}
       </div>
 
-      {/* Bottom row: Charts + Real Request Distribution */}
+      {/* ── Charts + Distribution ────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
           <UtilizationChart
@@ -288,7 +305,7 @@ export const DashboardPage: React.FC = () => {
         />
       </div>
 
-      {/* Live event feed */}
+      {/* ── Live Event Feed ──────────────────────────────────────────────────── */}
       <EventFeed events={sim.events} />
     </div>
   );

@@ -1,4 +1,4 @@
-export type ServerStatus = 'healthy' | 'warning' | 'overloaded' | 'offline';
+export type ServerStatus = 'healthy' | 'warning' | 'overloaded' | 'offline' | 'scaling' | 'scaled';
 
 export interface ServerMetrics {
   activeConnections: number;
@@ -19,6 +19,9 @@ export interface ServerNode {
   capacity: number;
   children: ServerNode[];
   createdAt: string;
+  host?: string;
+  port?: number;
+  baseUrl?: string;
   metrics?: ServerMetrics;
   requestCount?: number;
   requestsPerSecond?: number;
@@ -32,6 +35,9 @@ export interface ServerNode {
 export interface TopologySummary {
   totalServers: number;
   activeServers: number;
+  activeLeafServers?: number;
+  rootServers?: number;
+  scaledServers?: number;
   maxDepth: number;
   averageLoad: number;
   servers: ServerNode[];
@@ -93,6 +99,7 @@ export interface RoutingMetrics {
   lastRoutedServer: string | null;
   activeServersCount: number;
   lastRequestAt: string | null;
+  nextServerId?: string | null;
 }
 
 export interface RoutedSocketEvent {
@@ -102,6 +109,7 @@ export interface RoutedSocketEvent {
   sequence: number;
   processingTime: number;
   timestamp: string;
+  nextServerId?: string | null;
 }
 
 export interface ServerStatusEvent {
@@ -120,6 +128,11 @@ export interface ServerMetricsEvent {
   averageProcessingTime: number;
   status: ServerStatus;
   timestamp: string;
+  requestCount?: number;
+  port?: number;
+  uptime?: number;
+  memoryUsagePercent?: number;
+  cpuUsagePercent?: number;
 }
 
 export interface ServerOverloadedEvent {
@@ -148,5 +161,49 @@ export interface ClusterMetricsSummary {
   offlineServers: number;
   averageUtilization: number;
   totalRequests: number;
+}
+
+// ─── Phase 7 Scaling Event Types ─────────────────────────────────────────────
+
+export interface ServerScalingEvent {
+  serverId: string;
+  status: 'scaling';
+  timestamp: string;
+}
+
+export interface ServerScaledEvent {
+  serverId: string;
+  status: 'scaled';
+  children: string[];
+  timestamp: string;
+  servers?: ServerNode[];
+  summary?: TopologySummary;
+}
+
+export interface ServerScaleFailedEvent {
+  serverId: string;
+  status: 'scale_failed';
+  reason: string;
+  timestamp: string;
+}
+
+export interface TopologyUpdatedEvent {
+  action: 'scale' | 'prune' | 'add' | 'status_change';
+  parentId: string;
+  children: string[];
+  timestamp: string;
+  servers?: ServerNode[];
+  summary?: TopologySummary;
+}
+
+export interface ScalingHistoryRecord {
+  id: string;
+  timestamp: string;
+  parentId: string;
+  children: string[];
+  triggerUtilization: number;
+  status: 'success' | 'failed';
+  durationMs: number;
+  reason?: string;
 }
 

@@ -120,6 +120,7 @@ class LoadBalancerService {
         // 6. Emit Socket.IO 'request:routed' event
         try {
           const io = getIO();
+          const nextTarget = roundRobinService.peekNextServer();
           io.emit('request:routed', {
             requestId,
             serverId: server.id,
@@ -127,6 +128,7 @@ class LoadBalancerService {
             sequence,
             processingTime: serverResponse.processingTime,
             timestamp: serverResponse.timestamp,
+            nextServerId: nextTarget ? nextTarget.id : null,
           });
         } catch {
           logger.debug('[LoadBalancer] Socket.IO broadcast skipped (no active socket server)');
@@ -213,6 +215,8 @@ class LoadBalancerService {
       distribution[s.id] = this.requestsByServer[s.id] || 0;
     }
 
+    const nextServer = roundRobinService.peekNextServer();
+
     return {
       algorithm: 'round-robin',
       totalRequests: this.totalRequests,
@@ -221,6 +225,7 @@ class LoadBalancerService {
       lastRoutedServer: this.lastRoutedServer,
       activeServersCount: activeServers.length,
       lastRequestAt: this.lastRequestAt,
+      nextServerId: nextServer ? nextServer.id : null,
     };
   }
 

@@ -128,10 +128,35 @@ interface ServerNode {
 - [x] Frontend cluster monitoring bar, `● LIVE TELEMETRY` chart integration, animated node load bars, and telemetry details in inspector.
 - [x] 24/24 Phase 6 automated tests passing (51/51 total across all suites).
 
-### Phase 7: Dynamic Child Spawning & Hierarchical Auto-Scaling (Upcoming)
-- Automatic trigger reacting to `server:overloaded` events.
-- Spawning exactly 3 child server instances beneath the overloaded server (`S1.1`, `S1.2`, `S1.3`).
-- Dynamic port allocation and process lifecycle management for child nodes.
-- Hierarchical Round Robin routing through parent and child branches.
-- Automatic scale-down and graceful termination upon load recovery.
+### Phase 7: Dynamic Child Spawning & Hierarchical Auto-Scaling (Completed)
+- [x] Automatic reaction to confirmed `server:overloaded` events.
+- [x] Atomic spawning of exactly 3 independent child server processes (`S1.1`, `S1.2`, `S1.3`) beneath the overloaded node.
+- [x] Dynamic port allocation service (`portAllocator.ts`) selecting collision-free ports from range 3100–3999 with socket availability probes.
+- [x] Process lifecycle manager (`serverProcessManager.ts`) using Node.js `child_process.spawn` and graceful shutdown (`POST /shutdown` + SIGTERM).
+- [x] Safety boundaries: `MAX_SCALING_DEPTH=10`, `MAX_SERVER_PROCESSES=50`, and concurrency locks (`scalingLocks`) preventing duplicate operations.
+- [x] Atomic rollback on startup failure: terminating orphan processes, releasing ports, and emitting `server:scale_failed`.
+- [x] 32/32 Phase 7 automated tests passing.
+
+### Phase 8: Real-Time Frontend/Backend Integration (Completed)
+- [x] Unidirectional authoritative data flow: Backend is the single source of truth in Real Mode.
+- [x] Application-wide singleton real-time context (`RealRoutingContext.tsx`) maintaining active socket listeners.
+- [x] Enriched Socket.IO event payloads (`server:metrics`, `server:status`, `server:overloaded`, `request:routed`, `server:scaling`, `server:scaled`, `topology:updated`).
+- [x] Dynamic active leaf routing pool synchronization: Scaled parents are excluded, and dynamic children enter the active pool.
+- [x] Automatic REST re-synchronization on initial mount and on socket reconnection.
+- [x] 23/23 Phase 8 automated tests passing.
+
+### Phase 9: Failure Handling & Resilience Testing (Completed)
+- [x] Root server crash detection, failover, and zero-downtime recovery without duplication.
+- [x] Total cluster blackout protection: Controlled HTTP 503 `SERVICE_UNAVAILABLE` when no active servers exist.
+- [x] Dynamic child server failure isolation and depth-3 recursive failure/recovery testing.
+- [x] Strict request payload validation preventing unhandled crashes on malformed/circular inputs (HTTP 400).
+- [x] Front-end connection failure alerts (`Reconnecting...` and `No healthy servers available`).
+- [x] 29/29 Phase 9 automated tests passing (135/135 total across all test suites).
+
+### Phase 10: Final Polish & Deployment (Completed)
+- [x] Complete project audit and documentation update.
+- [x] Clean environment templates (`.env.example`).
+- [x] Academic defense guide (`docs/viva-guide.md`) and deployment guide (`docs/deployment.md`).
+- [x] Zero TypeScript errors across frontend, backend, and servers.
+- [x] Complete system verified, stable, and ready for academic demonstration.
 

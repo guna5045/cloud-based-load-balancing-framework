@@ -79,6 +79,85 @@ class ServerTopologyModel {
   }
 
   /**
+   * Returns all leaf servers (servers with zero children).
+   */
+  public getLeafServers(nodes: ServerNode[] = this.rootServers): ServerNode[] {
+    const leaves: ServerNode[] = [];
+    for (const node of nodes) {
+      if (!node.children || node.children.length === 0) {
+        leaves.push(node);
+      } else {
+        leaves.push(...this.getLeafServers(node.children));
+      }
+    }
+    return leaves;
+  }
+
+  /**
+   * Returns all scaled/parent servers (servers with one or more children, or marked scaled).
+   */
+  public getScaledServers(nodes: ServerNode[] = this.rootServers): ServerNode[] {
+    const scaled: ServerNode[] = [];
+    for (const node of nodes) {
+      if (node.status === 'scaled' || (node.children && node.children.length > 0)) {
+        scaled.push(node);
+      }
+      if (node.children && node.children.length > 0) {
+        scaled.push(...this.getScaledServers(node.children));
+      }
+    }
+    return scaled;
+  }
+
+  /**
+   * Calculates the hierarchical depth of a specific node (Root = 1, S1.1 = 2, S1.1.1 = 3).
+   */
+  public calculateDepth(nodeId: string): number {
+    return nodeId.split('.').length;
+  }
+
+  /**
+   * Atomically attaches child server nodes to a parent and updates parent status to 'scaled'.
+   */
+  public attachChildren(parentId: string, children: ServerNode[]): boolean {
+    const parent = this.findServer(parentId);
+    if (!parent) return false;
+
+    parent.children = children;
+    parent.status = 'scaled';
+    return true;
+  }
+
+  /**
+   * Removes a server node from the topology tree by ID.
+   */
+  public removeServer(id: string): boolean {
+    const rootIndex = this.rootServers.findIndex((s) => s.id === id);
+    if (rootIndex !== -1) {
+      this.rootServers.splice(rootIndex, 1);
+      return true;
+    }
+
+    const removeRecursive = (nodes: ServerNode[]): boolean => {
+      for (const node of nodes) {
+        if (node.children && node.children.length > 0) {
+          const idx = node.children.findIndex((c) => c.id === id);
+          if (idx !== -1) {
+            node.children.splice(idx, 1);
+            return true;
+          }
+          if (removeRecursive(node.children)) {
+            return true;
+          }
+        }
+      }
+      return false;
+    };
+
+    return removeRecursive(this.rootServers);
+  }
+
+  /**
    * Flattens the recursive server tree into a single list
    */
   public getAllServers(nodes: ServerNode[] = this.rootServers): ServerNode[] {
@@ -114,13 +193,22 @@ class ServerTopologyModel {
    */
   public getSummary(): TopologySummary {
     const allServers = this.getAllServers();
+    const leafServers = this.getLeafServers();
     const activeServers = allServers.filter((s) => s.status !== 'offline');
+    const activeLeafServers = leafServers.filter(
+      (s) => s.status !== 'offline' && s.status !== 'scaling'
+    );
+    const scaledServers = this.getScaledServers();
     const totalLoad = allServers.reduce((sum, s) => sum + s.load, 0);
-    const averageLoad = allServers.length > 0 ? Math.round((totalLoad / allServers.length) * 100) / 100 : 0;
+    const averageLoad =
+      allServers.length > 0 ? Math.round((totalLoad / allServers.length) * 100) / 100 : 0;
 
     return {
       totalServers: allServers.length,
       activeServers: activeServers.length,
+      activeLeafServers: activeLeafServers.length,
+      rootServers: this.rootServers.length,
+      scaledServers: scaledServers.length,
       maxDepth: this.calculateMaxDepth(),
       averageLoad,
       servers: this.rootServers,

@@ -74,6 +74,8 @@ export interface UseTopologySimulationReturn {
   recordRealServerHit: (serverId: string) => void;
   updateServerStatus: (serverId: string, status: ServerStatus) => void;
   updateServerMetrics: (data: ServerMetricsEvent) => void;
+  setAuthoritativeTopology: (nodes: ServerNode[]) => void;
+  setRealScalingState: (serverId: string | null, step: ScalingStep) => void;
 }
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
@@ -112,7 +114,7 @@ export function useTopologySimulation(): UseTopologySimulationReturn {
   // ── Derived: selected server ────────────────────────────────────────────────
 
   const selectedServer = selectedServerId
-    ? findNode(serversRef.current, selectedServerId)
+    ? findNode(servers, selectedServerId)
     : null;
 
   // ── Derived: simulation metrics ─────────────────────────────────────────────
@@ -335,11 +337,11 @@ export function useTopologySimulation(): UseTopologySimulationReturn {
           load: nextLoad,
           metrics: node.metrics
             ? {
-                ...node.metrics,
-                totalRequestsHandled: currentCount,
-                requestCount: currentCount,
-                cpuUsagePercent: Math.round(nextLoad * 0.8),
-              }
+              ...node.metrics,
+              totalRequestsHandled: currentCount,
+              requestCount: currentCount,
+              cpuUsagePercent: Math.round(nextLoad * 0.8),
+            }
             : undefined,
         };
       })
@@ -367,17 +369,33 @@ export function useTopologySimulation(): UseTopologySimulationReturn {
         requestsPerSecond: data.requestsPerSecond,
         activeRequests: data.activeRequests,
         averageProcessingTime: data.averageProcessingTime,
+        port: data.port ?? node.port,
+        requestCount: data.requestCount ?? node.requestCount,
         metrics: {
           activeConnections: data.activeRequests,
-          totalRequestsHandled: node.metrics?.totalRequestsHandled ?? 0,
-          cpuUsagePercent: Math.round(data.load * 0.8),
-          memoryUsagePercent: node.metrics?.memoryUsagePercent ?? 20,
+          totalRequestsHandled: data.requestCount ?? node.metrics?.totalRequestsHandled ?? 0,
+          cpuUsagePercent: data.cpuUsagePercent ?? Math.round(data.load * 0.8),
+          memoryUsagePercent: data.memoryUsagePercent ?? node.metrics?.memoryUsagePercent ?? 20,
           responseTimeMs: data.averageProcessingTime,
           requestsPerSecond: data.requestsPerSecond,
           lastRequestAt: data.timestamp,
         },
       }))
     );
+  }, []);
+
+  // ── Set authoritative topology from real backend ──
+  const setAuthoritativeTopology = useCallback((nodes: ServerNode[]) => {
+    if (!nodes || !Array.isArray(nodes) || nodes.length === 0) {
+      console.warn('[useTopologySimulation] Ignoring empty or invalid authoritative topology');
+      return;
+    }
+    setServers(nodes);
+  }, []);
+
+  // ── Update real scaling state for animations ──
+  const setRealScalingState = useCallback((serverId: string | null, step: ScalingStep) => {
+    setScaling({ serverId, step });
   }, []);
 
   return {
@@ -402,5 +420,7 @@ export function useTopologySimulation(): UseTopologySimulationReturn {
     recordRealServerHit,
     updateServerStatus,
     updateServerMetrics,
+    setAuthoritativeTopology,
+    setRealScalingState,
   };
 }

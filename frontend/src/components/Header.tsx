@@ -15,11 +15,11 @@ export const Header: React.FC = () => {
                 Cloud-Based Load Balancing Framework
               </h1>
               <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                Phase 1 Foundation
+                Production Cluster
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              Academic Computer Networks Project • Dynamic Hierarchical Cloud Topology
+              Distributed Load Balancing Framework • Dynamic Hierarchical Cloud Topology
             </p>
           </div>
         </div>
